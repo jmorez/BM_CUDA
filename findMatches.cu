@@ -54,7 +54,7 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     
     //Initialize MathWorks GPU API. 
     mxInitGPU();
-    
+     
     //Kernel parameters
 	//Figure out grid layout. We'll use a 2D grid where each thread corresponds with
       //one pixel. This should be possible on most devices, as 
