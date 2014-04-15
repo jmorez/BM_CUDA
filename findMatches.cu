@@ -54,10 +54,12 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     
     //Initialize MathWorks GPU API. 
     mxInitGPU();
-    
+     
     //Kernel parameters
-	//Figure out grid layout. We'll use a 2D grid where each thread corresponds with
-      //one pixel. This should be possible on most devices, as 
+	/*Figure out grid layout. We'll use a 2D grid where each thread corresponds with
+       *one pixel. We'll go for 1024 threads per block, which for a 2.1 CC device gives
+       *us 67% occupancy.
+      */
 	cudaDeviceProp device;
 	cudaGetDeviceProperties(&device,0);
 	const int MaxThreadsPerBlock=device.maxThreadsPerBlock;
