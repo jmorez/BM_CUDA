@@ -11,7 +11,7 @@ http://www.mia.uni-saarland.de/Publications/zimmer-lnla08.pdf
 Throughout this code, I will insert footnotes inside comments of the 
 format (#) which -unsurprisingly- can be found at the bottom. This is 
 first of all to keep the code compact, but also to allow both the 
-reader (you) as the developer (me) to understand this code, i.e. "why 
+reader (you) as the developer (me) to understand this code better, i.e. "why 
 use datatype X", "why do loop Y like this", "why is thisindex Z minus 
 one", ...  
 
