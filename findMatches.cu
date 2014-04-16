@@ -31,7 +31,7 @@
 /*  Kernel code, using floats because doubles can drastically hurt perfor-
  *  mance.
  */
-void __global__ findMatches(const float* d_img, const int M, const int N){
+void __global__ findMatches(const mxGPUArray* d_img, const size_t M, const size_t N){
     //Array coordinates of the reference block. 
     const int i = blockDim.x*blockIdx.x+threadIdx.x;
     const int j = blockDim.y*blockIdx.y+threadIdx.y;
@@ -55,14 +55,17 @@ void mexFunction(   int nlhs, mxArray *plhs[],
 
     //Variable declarations
     const mxGPUArray* A;
+    dim3 blocksPerGrid;
+    dim3 threadsPerBlock;
+    
     
     //Create the image array on the GPU
     A=mxGPUCreateFromMxArray(prhs[0]);
     const mwSize* img_size =  mxGPUGetDimensions(A);
-    const int M=img_size[0];
-    const int N=img_size[1];
-    
-    mexPrintf("\n %i %i \n",M,N);
+    const size_t M=img_size[0];
+    const size_t N=img_size[2];
+    const int P=mxGPUGetNumberOfDimensions (A);
+
     
     //Initialize MathWorks GPU API. 
     mxInitGPU();
@@ -73,9 +76,17 @@ void mexFunction(   int nlhs, mxArray *plhs[],
 	cudaDeviceProp device;
 	cudaGetDeviceProperties(&device,0);
 	const int MaxThreadsPerBlock=device.maxThreadsPerBlock;
-	dim3 BlockDim;
-	BlockDim.x=sqrt((double) MaxThreadsPerBlock);
-	BlockDim.y=sqrt((double) MaxThreadsPerBlock);
+	
+	threadsPerBlock.x=(size_t)sqrt((double) MaxThreadsPerBlock);
+	threadsPerBlock.y=(size_t)sqrt((double) MaxThreadsPerBlock);
+   
+    blocksPerGrid.x=(size_t)(M-1)/threadsPerBlock.x+1;
+    blocksPerGrid.y=(size_t)(N-1)/threadsPerBlock.y+1;
+    blocksPerGrid.z=1;
+    
+    
+    
+    findMatches<<<blocksPerGrid,threadsPerBlock>>>(A,M,N);
     
     
     
