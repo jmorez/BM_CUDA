@@ -13,13 +13,13 @@
 
 
  /* ###########################STYLE NOTES###############################
-  * Device variables will have the prefix d_, host variables h_
-  * The suffix _ptr will be used to denote that the variable is a pointer.
+  * Device variables will have the prefix d_, no prefix implies a host 
+  * variable.
   *
   * Throughout this code, I will insert footnotes inside comments of the 
   * format (#) which -unsurprisingly- can be found at the bottom. This is 
   * first of all to keep the code compact, but also to allow both the 
-  * reader (you) as the developer (me) to understand this code, i.e. "why 
+  * reader as myself to understand this code, i.e. "why 
   * use datatype X", "why do loop Y like this", "why is thisindex Z minus 
   * one", ...  
  */
@@ -42,38 +42,51 @@ void __global__ findMatches(const float* d_img, const int M, const int N){
 
 
 
-// Call in matlab like this:
-//[plhs[0],plhs[1],plhs[...],plhs[nrhs-1]]=filename(prhs[0],prhs[1],prhs[...],prhs[nrhs-1])
+/* Call in matlab like this:
+[plhs[0],plhs[1],plhs[...],plhs[nrhs-1]]=filename(prhs[0],prhs[1],prhs[...],prhs[nrhs-1])
+*/
 void mexFunction(   int nlhs, mxArray *plhs[],
                     int nrhs, mxArray const *prhs[]){
     /* prhs argument explanation:
-     *plhs[0]: mxGPUarray that contains the image. (1)
+     *plhs[0]: mxArray that contains the image. (1)
      */
     
+    
+
     //Variable declarations
+    const mxGPUArray* A;
+    
+    //Create the image array on the GPU
+    A=mxGPUCreateFromMxArray(prhs[0]);
+    const mwSize* img_size =  mxGPUGetDimensions(A);
+    const int M=img_size[0];
+    const int N=img_size[1];
+    
+    mexPrintf("\n %i %i \n",M,N);
     
     //Initialize MathWorks GPU API. 
     mxInitGPU();
      
     //Kernel parameters
-	/*Figure out grid layout. We'll use a 2D grid where each thread corresponds with
-       *one pixel. We'll go for 1024 threads per block, which for a 2.1 CC device gives
-       *us 67% occupancy.
-      */
+	/*Figure out grid layout. (1)
+	*/
 	cudaDeviceProp device;
 	cudaGetDeviceProperties(&device,0);
 	const int MaxThreadsPerBlock=device.maxThreadsPerBlock;
 	dim3 BlockDim;
 	BlockDim.x=sqrt((double) MaxThreadsPerBlock);
-      BlockDim.y=sqrt((double) MaxThreadsPerBlock);
-      mexPrintf("\n x: %u y:%u \n",BlockDim.x,BlockDim.y);
+	BlockDim.y=sqrt((double) MaxThreadsPerBlock);
+    
+    
+    
 }
 
 
+    
+
 
 /*####################### FOOTNOTES ##################################
- *(1)	I could also accept a (host) mxArray, but this would lengthen the 
- *      code with all sorts of ugly CUDA API calls that do the same thing 
- *      as mxGpuArray. 
- *       
+ * (1)  We'll use a 2D grid where each thread corresponds with
+ *      one pixel. We'll go for 1024 threads per block, which for a 2.1 CC 
+ *      device gives us 67% occupancy.
  */
