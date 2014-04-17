@@ -26,7 +26,7 @@
 
 #include "mex.h"
 #include "gpu/mxGPUArray.h"
-//#include "mxGPUArrayExtension.h"
+#include "mxGPUImage.h"
 
 #include <math.h>
 
@@ -106,9 +106,9 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     blocksPerGrid.y=(size_t)(N-1)/threadsPerBlock.y+1;
     blocksPerGrid.z=1;
     
-    mexPrintf("\n %f \n ",A[2]);
     //findMatches<<<blocksPerGrid,threadsPerBlock>>>(A,M,N);
     
+    mxGPUImage test;
     
     mxGPUDestroyGPUArray(A);
 }
