@@ -50,14 +50,13 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     /* prhs argument explanation:
      *plhs[0]: mxArray that contains the image. (1)
      */
-    
-    
 
     //Variable declarations
     const mxGPUArray* A;
     dim3 blocksPerGrid;
+
     dim3 threadsPerBlock;
-    
+
     
     //Create the image array on the GPU
     A=mxGPUCreateFromMxArray(prhs[0]);
@@ -76,7 +75,7 @@ void mexFunction(   int nlhs, mxArray *plhs[],
 	cudaDeviceProp device;
 	cudaGetDeviceProperties(&device,0);
 	const int MaxThreadsPerBlock=device.maxThreadsPerBlock;
-	
+
 	threadsPerBlock.x=(size_t)sqrt((double) MaxThreadsPerBlock);
 	threadsPerBlock.y=(size_t)sqrt((double) MaxThreadsPerBlock);
    
@@ -84,7 +83,8 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     blocksPerGrid.y=(size_t)(N-1)/threadsPerBlock.y+1;
     blocksPerGrid.z=1;
     
-    
+
+    printf(" \n %i %i \n",blocksPerGrid.x,blocksPerGrid.y);
     
     findMatches<<<blocksPerGrid,threadsPerBlock>>>(A,M,N);
     
