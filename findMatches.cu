@@ -26,21 +26,42 @@
 
 #include "mex.h"
 #include "gpu/mxGPUArray.h"
+//#include "mxGPUArrayExtension.h"
+
 #include <math.h>
+
 
 /*  Kernel code, using floats because doubles can drastically hurt perfor-
  *  mance.
  */
-void __global__ findMatches(const mxGPUArray* d_img, const size_t M, const size_t N){
+void __global__ findMatches(const mxGPUArray* d_img, const int* imgSize, const int blocksize){
     //Array coordinates of the reference block. 
     const int i = blockDim.x*blockIdx.x+threadIdx.x;
     const int j = blockDim.y*blockIdx.y+threadIdx.y;
-    if (i < M && j < N){
-        // Do stuff...
+    if (i < imgSize[0] && j < imgSize[1]){
+        //Fetch the reference block
+       
+        
+        //CompareBlocks (ref, [search_window])
+        
+        
     }
 }
 
-
+//I'll need a way to fetch square regions of an image easily
+void __device__ getRegionAroundPixel(   const mxGPUArray* d_img,
+                                        const mxGPUArray* d_result,
+                                        const int radius,
+                                        const int i, 
+                                        const int j){
+    /*
+    const int min_i=i-radius;
+    const int max_i=i+radius;
+    const int min_j=j-radius;
+    const int max_j=j+radius;
+    */
+      
+}
 
 /* Call in matlab like this:
 [plhs[0],plhs[1],plhs[...],plhs[nrhs-1]]=filename(prhs[0],prhs[1],prhs[...],prhs[nrhs-1])
@@ -57,13 +78,15 @@ void mexFunction(   int nlhs, mxArray *plhs[],
 
     dim3 threadsPerBlock;
 
+    //Input verification
     
-    //Create the image array on the GPU
+    
+    //Create the image array on the GPU. Edit: fuck this datatype, CUDA arrays are
+    //more useful
     A=mxGPUCreateFromMxArray(prhs[0]);
     const mwSize* img_size =  mxGPUGetDimensions(A);
     const size_t M=img_size[0];
     const size_t N=img_size[2];
-    const int P=mxGPUGetNumberOfDimensions (A);
 
     
     //Initialize MathWorks GPU API. 
@@ -83,13 +106,11 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     blocksPerGrid.y=(size_t)(N-1)/threadsPerBlock.y+1;
     blocksPerGrid.z=1;
     
-
-    printf(" \n %i %i \n",blocksPerGrid.x,blocksPerGrid.y);
-    
-    findMatches<<<blocksPerGrid,threadsPerBlock>>>(A,M,N);
+    mexPrintf("\n %f \n ",A[2]);
+    //findMatches<<<blocksPerGrid,threadsPerBlock>>>(A,M,N);
     
     
-    
+    mxGPUDestroyGPUArray(A);
 }
 
 
