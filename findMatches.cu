@@ -107,13 +107,11 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     blocksPerGrid.z=1;
     
     //findMatches<<<blocksPerGrid,threadsPerBlock>>>(A,M,N);
-<<<<<<< HEAD
+
     mxGPUImage test;
     test.setDataF(A);
-=======
     
     mxGPUImage test;
->>>>>>> b5faea2e7c1e49d2884a88fdab71c6328f58f971
     
     mxGPUDestroyGPUArray(A);
 }

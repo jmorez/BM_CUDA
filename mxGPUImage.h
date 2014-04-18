@@ -2,7 +2,7 @@
 
 #ifndef MXGPUIMAGE_H
 #define MXGPUIMAGE_H
-<<<<<<< HEAD
+
 
 /* Wrapper class with all kinds of useful methods for indexing and stuff 
  * like that.
@@ -49,16 +49,15 @@ mxGPUImage::mxGPUImage(void){
     mexPrintf("\n fak off \n");
 };
 
->>>>>>> b5faea2e7c1e49d2884a88fdab71c6328f58f971
 mxGPUImage createFromGPUArray(mxGPUArray* d_array){
     mxGPUImage meh;
     return meh;
 };
-<<<<<<< HEAD
+
 */
 float mxGPUImage::operator()(int i, int j){
     return 0.;
 };
 =======
->>>>>>> b5faea2e7c1e49d2884a88fdab71c6328f58f971
+
 #endif
