@@ -46,22 +46,6 @@ void __global__ findMatches(const mxGPUArray* d_img, const int* imgSize, const i
         
     }
 }
-
-//I'll need a way to fetch square regions of an image easily
-void __device__ getRegionAroundPixel(   const mxGPUArray* d_img,
-                                        const mxGPUArray* d_result,
-                                        const int radius,
-                                        const int i, 
-                                        const int j){
-    /*
-    const int min_i=i-radius;
-    const int max_i=i+radius;
-    const int min_j=j-radius;
-    const int max_j=j+radius;
-    */
-      
-}
-
 /* Call in matlab like this:
 [plhs[0],plhs[1],plhs[...],plhs[nrhs-1]]=filename(prhs[0],prhs[1],prhs[...],prhs[nrhs-1])
 */
@@ -110,7 +94,7 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     mxGPUImage test;
     test.setDataF(A);
 
-    test.printPixelValue(3,3);
+    test.printPixelValue(0,0);
 
     
     mxGPUDestroyGPUArray(A);

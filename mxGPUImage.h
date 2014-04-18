@@ -1,5 +1,4 @@
 #include "gpu/mxGPUArray.h" 
-
 #ifndef MXGPUIMAGE_H
 #define MXGPUIMAGE_H
 
@@ -33,7 +32,7 @@ mxGPUImage::~mxGPUImage(void){
     if(image_data_exists==true){
         //mxGPUDestroyGPUArray(d_imagedata);
     }
-}
+};
 
 void mxGPUImage::setDataF(const mxGPUArray* d_array){
     const mwSize* array_Size=mxGPUGetDimensions(d_array);
@@ -47,7 +46,9 @@ void mxGPUImage::setDataF(const mxGPUArray* d_array){
 void mxGPUImage::printPixelValue(int i, int j){
     //mxArray h_value mxGPUCreateMxArrayOnCPU();
     //float h_value=5.;
-    mexPrintf("\n %f \n",(*this)(i,j));
+    float d_value=(*this)(i,j);
+    
+    mexPrintf("\n %f \n",d_value);
 };
 
 mxGPUImage getRegionAroundPixel(    const int radius, 
@@ -59,8 +60,11 @@ mxGPUImage getRegionAroundPixel(    const int radius,
 
 float mxGPUImage::operator()(int i, int j){
     //I so hope this works
-    return (this->d_imagedata)[j*(this->M)+i];
-    //return  ((float*)mxGPUGetData(d_imagedata))[j*(this->M)+i];
+    if (i < M && j < N){
+        return (this->d_imagedata)[j*(this->M)+i];}
+    else{
+        return mxGetNaN();
+    }
 };
 
 
