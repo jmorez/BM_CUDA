@@ -27,7 +27,6 @@
 #include "mex.h"
 #include "gpu/mxGPUArray.h"
 #include "mxGPUImage.h"
-
 #include <math.h>
 
 
@@ -110,8 +109,9 @@ void mexFunction(   int nlhs, mxArray *plhs[],
 
     mxGPUImage test;
     test.setDataF(A);
-    
-    mxGPUImage test;
+
+    test.printPixelValue(3,3);
+
     
     mxGPUDestroyGPUArray(A);
 }

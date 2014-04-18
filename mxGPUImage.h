@@ -7,57 +7,61 @@
 /* Wrapper class with all kinds of useful methods for indexing and stuff 
  * like that.
  */
-class mxGPUImage {
+class mxGPUImage{
     public:
+        int M,N;
+        mxGPUImage(void);
+        ~mxGPUImage(void);
+        
         void setDataF(const mxGPUArray* );
-        float mxGPUImage::operator()(int , int);
-
+        void printPixelValue(int i, int j);
+        mxGPUImage getRegionAroundPixel(const int radius, 
+                                    const int i, 
+                                    const int j);
+                                    
+        float mxGPUImage::operator()(int , int); 
+        
     private:
         float* d_imagedata;
-        int M,N;
+        bool image_data_exists;
 };
+
+mxGPUImage::mxGPUImage(void):M(0),N(0),image_data_exists(false){
+};
+
+mxGPUImage::~mxGPUImage(void){
+    if(image_data_exists==true){
+        //mxGPUDestroyGPUArray(d_imagedata);
+    }
+}
 
 void mxGPUImage::setDataF(const mxGPUArray* d_array){
     const mwSize* array_Size=mxGPUGetDimensions(d_array);
     this->M=array_Size[0];
     this->N=array_Size[2];
-    //This still needs allocation and crap like that
-    float* d_arrayptr=(float*)mxGPUGetDataReadOnly(d_array);
-    for (int i=0; i < M*N-1; i++){
-        d_imagedata[i]=d_arrayptr[i];
-    }
-};
-/*
-=======
-class mxGPUImage {
-    public:
-        mxGPUImage(void);
-        mxGPUImage createFromGPUArray(mxGPUArray*);
-        float mxGPUImage::operator()(int i, int j){
-            return 0.;
-        };
-        /*
-        mxGPUImage getRegionAroundPixel(int, int);
-        int getM();
-        int getN();
-    private:
-        const int M, N;
-         */
+    //d_B = (double *)(mxGPUGetData(B));
+    this->d_imagedata =(float*) mxGPUGetDataReadOnly(d_array);
+    image_data_exists=true; 
 };
 
-mxGPUImage::mxGPUImage(void){
-    mexPrintf("\n fak off \n");
+void mxGPUImage::printPixelValue(int i, int j){
+    //mxArray h_value mxGPUCreateMxArrayOnCPU();
+    //float h_value=5.;
+    mexPrintf("\n %f \n",(*this)(i,j));
 };
 
-mxGPUImage createFromGPUArray(mxGPUArray* d_array){
-    mxGPUImage meh;
-    return meh;
+mxGPUImage getRegionAroundPixel(    const int radius, 
+                                    const int i, 
+                                    const int j){
+    mxGPUImage nothing;
+    return nothing;
 };
 
-*/
 float mxGPUImage::operator()(int i, int j){
-    return 0.;
+    //I so hope this works
+    return (this->d_imagedata)[j*(this->M)+i];
+    //return  ((float*)mxGPUGetData(d_imagedata))[j*(this->M)+i];
 };
-=======
+
 
 #endif
