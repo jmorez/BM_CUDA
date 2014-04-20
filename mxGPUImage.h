@@ -70,13 +70,16 @@ void mxGPUImage::setDataF(mxGPUArray* A){
     image_data_exists=true; 
 };
 
+
 //Returns a pointer to the raw floating point image data
+
 float* mxGPUImage::getDataF(){
     if(image_data_exists==true)
         return this->d_imagedataPtr;
     else
         return NULL;
 };
+
 
 //Returns an mxArray pointer to the data copied to the CPU 
 mxArray* mxGPUImage::getDataMxArrayCPU(){   
@@ -87,6 +90,7 @@ mxArray* mxGPUImage::getDataMxArrayCPU(){
     else
         return NULL;     
 };
+
 
 //Returns an mxGPUArray that contains a square region of edge 2*radius+1 
 //around a pixel (i,j)
@@ -118,6 +122,7 @@ mxGPUArray* mxGPUImage::getRegionAroundPixel(const int radius,
 
     return d_region;
 };
+
 
 //Useful for assigning single pixels a certain value. Cfr. supra.
 float mxGPUImage::getValue(const int i, const int j){
