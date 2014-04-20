@@ -14,17 +14,17 @@ class mxGPUImage{
         //set-functions
         void setDataF(const mxGPUArray*);
         void setDataF(mxGPUArray*);
-        void setDataF(float* );
+        void setDataF(double* );
         
         //get-functions
-        float* getDataF(void);
+        double* getDataF(void);
         mxArray* getDataMxArrayCPU(void);
         int getM(void);
         int getN(void);
-        float getValue(const int i, const int j);
+        double getValue(const int i, const int j);
         
         //Operators
-        float* mxGPUImage::operator()(int , int);
+        double* mxGPUImage::operator()(int , int);
         
         
         //Misc.
@@ -35,7 +35,7 @@ class mxGPUImage{
     private:
         int M,N;
         mxGPUArray* d_imagedata;
-        float* d_imagedataPtr;
+        double* d_imagedataPtr;
         bool image_data_exists;
         //static mwSize ndims;
 };
@@ -57,7 +57,7 @@ void mxGPUImage::setDataF(const mxGPUArray* A){
     this->M=array_Size[0];
     this->N=array_Size[2];
     this->d_imagedata = mxGPUCopyGPUArray(A);
-    this->d_imagedataPtr=(float*)mxGPUGetData(this->d_imagedata);
+    this->d_imagedataPtr=(double*)mxGPUGetData(this->d_imagedata);
     image_data_exists=true; 
 };
 
@@ -66,14 +66,14 @@ void mxGPUImage::setDataF(mxGPUArray* A){
     this->M=array_Size[0];
     this->N=array_Size[2];
     this->d_imagedata =mxGPUCopyGPUArray(A);
-    this->d_imagedataPtr=(float*) mxGPUGetData(this->d_imagedata);
+    this->d_imagedataPtr=(double*) mxGPUGetData(this->d_imagedata);
     image_data_exists=true; 
 };
 
 
-//Returns a pointer to the raw floating point image data
+//Returns a pointer to the raw doubleing point image data
 
-float* mxGPUImage::getDataF(){
+double* mxGPUImage::getDataF(){
     if(image_data_exists==true)
         return this->d_imagedataPtr;
     else
@@ -107,7 +107,7 @@ mxGPUArray* mxGPUImage::getRegionAroundPixel(const int radius,
                                                 mxSINGLE_CLASS,
                                                 mxREAL,
                                                 MX_GPU_DO_NOT_INITIALIZE);
-    float* d_regiondata=(float*)mxGPUGetData(d_region);
+    double* d_regiondata=(double*)mxGPUGetData(d_region);
     
     const int min_i=i-radius;
     const int max_i=i+radius;
@@ -125,16 +125,20 @@ mxGPUArray* mxGPUImage::getRegionAroundPixel(const int radius,
 
 
 //Useful for assigning single pixels a certain value. Cfr. supra.
-float mxGPUImage::getValue(const int i, const int j){
+double mxGPUImage::getValue(const int i, const int j){
     return *((this->d_imagedataPtr)+(j*(this->M)+i));
 };
 
 //Not sure if I want a pointer or a value
-float* mxGPUImage::operator()(int i, int j){
+double* mxGPUImage::operator()(int i, int j){
     if (i < M && j < N)
         return ((this->getDataF())+(j*(this->M)+i));
     else
         return NULL;
+};
+
+int mxGPUImage::getM(){
+    return this->M;
 };
 
 

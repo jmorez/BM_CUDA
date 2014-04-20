@@ -93,9 +93,24 @@ void mexFunction(   int nlhs, mxArray *plhs[],
 
     mxGPUImage test;
     test.setDataF(A);
-    mxArray* output=test.getDataMxArray();
-
+    mxArray* output=test.getDataMxArrayCPU();
+    double* outputPtr=(double*) mxGetData(output);
     
+    mxGPUArray* d_region=test.getRegionAroundPixel(1,3,2);
+    mxGPUImage test2;
+    test2.setDataF(d_region);
+    mxArray* output2=test2.getDataMxArrayCPU();
+    
+    double* output2Ptr=(double*) mxGetData(output2);
+            
+    mexPrintf("\n");
+    for(int i=0; i < 3; i++){
+        mexPrintf("\n");
+        for(int j=0; j < 3; j++){
+        mexPrintf(" %i",test2.getM());
+        }
+    }
+    mexPrintf("\n");
     mxGPUDestroyGPUArray(A);
 }
 
