@@ -94,8 +94,6 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     mxGPUImage test;
     test.setDataF(A);
 
-    test.printPixelValue(0,0);
-
     
     mxGPUDestroyGPUArray(A);
 }
