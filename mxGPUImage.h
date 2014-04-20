@@ -101,12 +101,15 @@ mxGPUArray* mxGPUImage::getRegionAroundPixel(const int radius,
     mwSize* array_size=(mwSize*) mxMalloc((mwSize) 2*sizeof(mwSize));
     array_size[0]=2*radius+1;
     array_size[2]=array_size[0];
-
+    array_size[1]=0;
+    array_size[3]=0;
+    
     mxGPUArray* d_region=mxGPUCreateGPUArray(   (mwSize) 2,
                                                 array_size,
-                                                mxSINGLE_CLASS,
+                                                mxDOUBLE_CLASS,
                                                 mxREAL,
                                                 MX_GPU_DO_NOT_INITIALIZE);
+    
     double* d_regiondata=(double*)mxGPUGetData(d_region);
     
     const int min_i=i-radius;
@@ -114,12 +117,16 @@ mxGPUArray* mxGPUImage::getRegionAroundPixel(const int radius,
     const int min_j=j-radius;
     const int max_j=j+radius;
     
-    for (int i=min_i; i <= max_i; i++){
-        for(int j=min_j;j <= max_j; j++){
-            d_regiondata[i*(array_size[0]+j)]=this->getValue(i,j);
+    int k=0;
+    for(int j=min_j;j <= max_j; j++){
+        for (int i=min_i; i <= max_i; i++){ 
+            //This just doesn't work, am I assigning a host to a device 
+            //variable or vice versa?
+            d_regiondata[k]=(this->d_imagedataPtr)[0];
+            k+=1;
         }
     }
-
+     /**/
     return d_region;
 };
 

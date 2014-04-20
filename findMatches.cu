@@ -11,7 +11,6 @@
  */
 
 
-
  /* ###########################STYLE NOTES###############################
   * Device variables will have the prefix d_, no prefix implies a host 
   * variable.
@@ -22,7 +21,7 @@
   * reader as myself to understand this code, i.e. "why 
   * use datatype X", "why do loop Y like this", "why is thisindex Z minus 
   * one", ...  
- */
+  */
 
 #include "mex.h"
 #include "gpu/mxGPUArray.h"
@@ -97,6 +96,7 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     double* outputPtr=(double*) mxGetData(output);
     
     mxGPUArray* d_region=test.getRegionAroundPixel(1,3,2);
+    
     mxGPUImage test2;
     test2.setDataF(d_region);
     mxArray* output2=test2.getDataMxArrayCPU();
@@ -107,16 +107,13 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     for(int i=0; i < 3; i++){
         mexPrintf("\n");
         for(int j=0; j < 3; j++){
-        mexPrintf(" %i",test2.getM());
+        mexPrintf(" %f",output2Ptr[j*3+i]);
         }
     }
+     
     mexPrintf("\n");
     mxGPUDestroyGPUArray(A);
 }
-
-
-    
-
 
 /*####################### FOOTNOTES ##################################
  * (1)  We'll use a 2D grid where each thread corresponds with
