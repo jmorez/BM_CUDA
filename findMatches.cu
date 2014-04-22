@@ -30,6 +30,7 @@
  *  
  */
 
+//Verify the argument types
 void __device__ lin_interp(     const double* image, 
                                 double m, 
                                 double n, 
@@ -39,7 +40,7 @@ void __device__ lin_interp(     const double* image,
     interpolated=image[k];
 }
 
-//Check the type, I think they should be double const * const
+//Check the type (cfr. mexGPUExample.cu), I think they should be double const * const
 void __global__ findMatches(double* const d_similarity,
                             const double* d_Cx,
                             const double* d_Cy,
@@ -57,55 +58,63 @@ void __global__ findMatches(double* const d_similarity,
     /*  Fetch the reference and match centroid components, I might pass this 
      *  to the kernel because this is the same for every thread.
      */
-    const int searchwindow_center=(int)(window_size[0]*window_size[1]-1)/2;
-    double Cx_r=d_Cx[searchwindow_center];
-    double Cy_r=d_Cy[searchwindow_center];
+    d_similarity[j*window_size[0]+i]=1;
     
-    const int pm_centroid=(j-padding_size)*(window_size[0]-blocksize)+i-padding_size;
-    double Cx_m=d_Cx[pm_centroid];
-    double Cy_m=d_Cy[pm_centroid];
     
-    if (    window_size[0] <= i && i < window_size[0] 
-            &&window_size[1] <= j && j < window_size[1]){
-        //We must go deeper...
-        int k; int m_r; int n_r;
-        double x; double y; double x_r; double y_r;
-        for (int m=0; m < blocksize*blocksize; m++){
-        for (int n=0; n < blocksize; n++){
-            k=blocksize*n+m;
-            if(d_mask[k]==1){
-                /* Calculate corresponding normalized coordinates
-                 */
-                x=n/(blocksize-1)-0.5;
-                y=-m/(blocksize-1)+0.5;
-                
-                /* Check this expression! Notice that there's actually only
-                 * 2 values in the parentheses. 
-                 */
-                /* Rotate coordinates (get everything working without 
-                 * rotation first!).
-                 */
-                x_r=(Cx_r*Cx_m+Cy_r*Cy_m)*x+(Cx_m*Cy_r-Cx_r*Cy_m)*y;
-                y_r=(Cx_r*Cy_m-Cx_m*Cy_r)*x+(Cx_r*Cx_m+Cy_r*Cy_m)*y;
-                
-                /* Return to indices, but immediately offset them so they 
-                 * correspond to searchwindow coordinates
-                 */
-                m_r=(x_r+0.5)*((double)(blocksize-1))+(double)i;
-                n_r=(0.5-y_r)*((double)(blocksize-1))+(double)j;
-                double interpolated=0;
-                lin_interp(d_searchwindow,m_r,n_r,window_size[0],interpolated);
-                double d=d_ref[k]-interpolated;
-                d_similarity[j*window_size[0]+i]=d*d;
-
-                /*Transform to a linear index that can fetch the potential
-                 *match pixel within the search window, interpolating. 
-                 */
-                
-            }
-        }
-        }
-    }
+//     const int searchwindow_center=(int)(window_size[0]*window_size[1]-1)/2;
+//     double Cx_r=d_Cx[searchwindow_center];
+//     double Cy_r=d_Cy[searchwindow_center];
+//     
+//     const int pm_centroid=(j-padding_size)*(window_size[0]-blocksize)+i-padding_size;
+//     double Cx_m=d_Cx[pm_centroid];
+//     double Cy_m=d_Cy[pm_centroid];
+//     
+//     if (    window_size[0] <= i && i < window_size[0] 
+//             &&window_size[1] <= j && j < window_size[1]){
+//         //We must go deeper...
+//         int k; int m_r; int n_r;
+//         double x; double y; double x_r; double y_r;
+//         for (int m=0; m < blocksize*blocksize; m++){
+//         for (int n=0; n < blocksize; n++){
+//             k=blocksize*n+m;
+//             if(d_mask[k]==1){
+//                 /* Calculate corresponding normalized coordinates
+//                  */
+//                 x=n/(blocksize-1)-0.5;
+//                 y=-m/(blocksize-1)+0.5;
+//                 
+//                 /* Check this expression! Notice that there's actually only
+//                  * 2 values in the parentheses. 
+//                  */
+//                 /* Rotate coordinates (get everything working without 
+//                  * rotation first!).
+//                  */
+//                 /*
+//                 x_r=(Cx_r*Cx_m+Cy_r*Cy_m)*x+(Cx_m*Cy_r-Cx_r*Cy_m)*y;
+//                 y_r=(Cx_r*Cy_m-Cx_m*Cy_r)*x+(Cx_r*Cx_m+Cy_r*Cy_m)*y;
+//                 */
+//                 x_r=1*x+0*y;
+//                 y_r=0*x+1*y;
+//                 /* Return to indices, but immediately offset them so they 
+//                  * correspond to searchwindow coordinates
+//                  */
+//                 m_r=(x_r+0.5)*((double)(blocksize-1))+(double)i;
+//                 n_r=(0.5-y_r)*((double)(blocksize-1))+(double)j;
+//                 double interpolated=0;
+//                 lin_interp(d_searchwindow,m_r,n_r,window_size[0],interpolated);
+//                 double d=5+0*d_ref[k]+0*interpolated;
+//                 d_similarity[j*window_size[0]+i]=d*d;
+// 
+//                 /*Transform to a linear index that can fetch the potential
+//                  *match pixel within the search window, interpolating. 
+//                  */
+//                 
+//             }
+//             else
+//                 d_similarity[j*window_size[0]+i]=0;
+//         }
+//         }
+//     }
 }
 
 /* Call in matlab like this:
@@ -128,7 +137,7 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     int* window_size;
     
     
-    //Array & device pointer declarations, make sure to destroy mxGPUArrays.
+    //mxGPUArray & device pointer declarations, make sure to destroy mxGPUArrays.
     mxGPUArray* similarity;
     double* d_similarity;
     const mxGPUArray* Cx; 
@@ -195,7 +204,7 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     blocksPerGrid.x=(size_t)(window_size[0]-1)/threadsPerBlock.x+1;
     blocksPerGrid.y=(size_t)(window_size[2]-1)/threadsPerBlock.y+1;
     blocksPerGrid.z=1;
-    
+    /*
     findMatches<<<blocksPerGrid,threadsPerBlock>>>( d_similarity,
                                                     d_Cx,
                                                     d_Cy,
@@ -204,7 +213,7 @@ void mexFunction(   int nlhs, mxArray *plhs[],
                                                     d_searchwindow,
                                                     window_size,
                                                     d_mask);
-
+    */
    /*
     mexPrintf("\n");
     for(int i=0; i < 3; i++){
@@ -214,6 +223,8 @@ void mexFunction(   int nlhs, mxArray *plhs[],
         }
     }
      */
+    plhs[0] = mxGPUCreateMxArrayOnCPU(similarity);
+    
     mexPrintf("\n");
     
     mxFree(window_size);
@@ -222,6 +233,7 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     mxGPUDestroyGPUArray(ref);
     mxGPUDestroyGPUArray(searchwindow);
     mxGPUDestroyGPUArray(mask);
+    mxGPUDestroyGPUArray(similarity);
 }
 
 /*####################### FOOTNOTES ##################################
