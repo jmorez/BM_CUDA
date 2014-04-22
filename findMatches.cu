@@ -4,13 +4,6 @@
  *  population for denoising single pixels in an image.
  */
 
-/*  This function contains the findMatches CUDA kernel that will find 
- *  matches for every pixel in an image of size M by N (rows x columns).
- *  The algorithm is based on the following paper:
- *  http://www.mia.uni-saarland.de/Publications/zimmer-lnla08.pdf
- */
-
-
  /* ###########################STYLE NOTES###############################
   * Device variables will have the prefix d_, no prefix implies a host 
   * variable.
@@ -25,58 +18,110 @@
 
 #include "mex.h"
 #include "gpu/mxGPUArray.h"
-#include "mxGPUImage.h"
 #include <math.h>
 
 
-/*  Kernel code, using floats because doubles can drastically hurt perfor-
- *  mance.
+/*  This kernel will find matches for a reference block and a search window. 
+ *  Every thread gets one comparison of the reference block with a block 
+ *  from the search window. 
+ *  The search window is assumed to include padding (either with zeroes or 
+ *  an extra part of the image. 
+ *  The centroid components Cx and Cy are assumed to be normalized.
+ *  
  */
-void __global__ findMatches(const mxGPUArray* d_img, const int* imgSize, const int blocksize){
-    //Array coordinates of the reference block. 
-    const int i = blockDim.x*blockIdx.x+threadIdx.x;
-    const int j = blockDim.y*blockIdx.y+threadIdx.y;
-    if (i < imgSize[0] && j < imgSize[1]){
-        //Fetch the reference block
-       
-        
-        //CompareBlocks (ref, [search_window])
-        
-        
+void __global__ findMatches(const double* d_similarity,
+                            const double* d_Cx,
+                            const double* d_Cy,
+                            const double* d_ref,
+                            const int blocksize,
+                            const double* d_search_window, //Note that it should include padding with (blocksize-1)/2
+                            const int* window_size, 
+                            const bool* d_mask){
+    
+    const int i = blockDim.x*blockIdx.x+threadIdx.x+(const int)(blocksize-1)/2;
+    const int j = blockDim.y*blockIdx.y+threadIdx.y+(const int)(blocksize-1)/2;
+    
+    if (i < window_size[0] && j < window_size[1]){
     }
 }
+
 /* Call in matlab like this:
 [plhs[0],plhs[1],plhs[...],plhs[nrhs-1]]=filename(prhs[0],prhs[1],prhs[...],prhs[nrhs-1])
 */
 void mexFunction(   int nlhs, mxArray *plhs[],
                     int nrhs, mxArray const *prhs[]){
     /* prhs argument explanation:
-     *plhs[0]: mxArray that contains the image. (1)
+     *plhs[0]: Cx
+     *... [1]: Cy
+     *... [2]: ref
+     *... [3]: search_window
+     *... [4]: mask
      */
-
-    //Variable declarations
-    const mxGPUArray* A;
-    dim3 blocksPerGrid;
-
-    dim3 threadsPerBlock;
-
-    //Input verification
-    
-    
-    //Create the image array on the GPU. Edit: fuck this datatype, CUDA arrays are
-    //more useful
-    A=mxGPUCreateFromMxArray(prhs[0]);
-    const mwSize* img_size =  mxGPUGetDimensions(A);
-    const size_t M=img_size[0];
-    const size_t N=img_size[2];
-
     
     //Initialize MathWorks GPU API. 
     mxInitGPU();
+    
+    //Misc. array declarations
+    int* window_size;
+    
+    
+    //Array & device pointer declarations, make sure to destroy mxGPUArrays.
+    mxGPUArray* similarity;
+    const double* d_similarity;
+    const mxGPUArray* Cx; 
+    const double* d_Cx;
+    const mxGPUArray* Cy;
+    const double* d_Cy; 
+    const mxGPUArray* ref;
+    const double* d_ref;
+    const mxGPUArray* searchwindow;
+    const double* d_searchwindow;
+    const mxGPUArray* mask;
+    const bool* d_mask;
+    
+    //Grid parameters
+    dim3 blocksPerGrid;
+    dim3 threadsPerBlock;
+
+    /*Input verification
+        ... I'll do it later
+    */
+    //Create the image array on the GPU and assign device pointers.
+    Cx              =mxGPUCreateFromMxArray(prhs[0]);
+    Cy              =mxGPUCreateFromMxArray(prhs[1]);
+    ref             =mxGPUCreateFromMxArray(prhs[2]);
+    searchwindow    =mxGPUCreateFromMxArray(prhs[3]);
+    mask            =mxGPUCreateFromMxArray(prhs[4]);
+    
+    d_Cx=(double*)mxGPUGetDataReadOnly(Cx);
+    d_Cy=(double*)mxGPUGetDataReadOnly(Cy);
+    d_ref=(double*)mxGPUGetDataReadOnly(ref);
+    d_searchwindow=(double*)mxGPUGetDataReadOnly(searchwindow);
+    d_mask=(bool*)mxGPUGetDataReadOnly(mask);
+    
+    //Output array, probably needs a smaller size due to padding of searchwindow
+    similarity = mxGPUCreateGPUArray(mxGPUGetNumberOfDimensions(searchwindow),
+                            mxGPUGetDimensions(searchwindow),
+                            mxGPUGetClassID(searchwindow),
+                            mxGPUGetComplexity(searchwindow),
+                            MX_GPU_DO_NOT_INITIALIZE);
+    d_similarity = (double *)(mxGPUGetData(similarity));
+            
+    //Get blocksize and windowsize without padding
+    const mwSize* mw_blocksize=mxGPUGetDimensions(ref);
+    const int blocksize=mw_blocksize[0];
+
+    const mwSize* mw_WindowSize =  mxGPUGetDimensions(searchwindow);
+    window_size=(int*) mxMalloc(sizeof(int)*2);
+    //Account for padding
+    window_size[0]=mw_WindowSize[0]-blocksize;
+    window_size[1]=mw_WindowSize[2]-blocksize;
+    
+
      
-    //Kernel parameters
-	/*Figure out grid layout. (1)
-	*/
+    /*Kernel parameters
+	 *Figure out grid layout. (1)
+	 */
 	cudaDeviceProp device;
 	cudaGetDeviceProperties(&device,0);
 	const int MaxThreadsPerBlock=device.maxThreadsPerBlock;
@@ -84,25 +129,20 @@ void mexFunction(   int nlhs, mxArray *plhs[],
 	threadsPerBlock.x=(size_t)sqrt((double) MaxThreadsPerBlock);
 	threadsPerBlock.y=(size_t)sqrt((double) MaxThreadsPerBlock);
    
-    blocksPerGrid.x=(size_t)(M-1)/threadsPerBlock.x+1;
-    blocksPerGrid.y=(size_t)(N-1)/threadsPerBlock.y+1;
+    blocksPerGrid.x=(size_t)(window_size[0]-1)/threadsPerBlock.x+1;
+    blocksPerGrid.y=(size_t)(window_size[2]-1)/threadsPerBlock.y+1;
     blocksPerGrid.z=1;
     
-    //findMatches<<<blocksPerGrid,threadsPerBlock>>>(A,M,N);
+    findMatches<<<blocksPerGrid,threadsPerBlock>>>( d_similarity,
+                                                    d_Cx,
+                                                    d_Cy,
+                                                    d_ref,
+                                                    blocksize,
+                                                    d_searchwindow,
+                                                    window_size,
+                                                    d_mask);
 
-    mxGPUImage test;
-    test.setDataF(A);
-    mxArray* output=test.getDataMxArrayCPU();
-    double* outputPtr=(double*) mxGetData(output);
-    
-    mxGPUArray* d_region=test.getRegionAroundPixel(1,3,2);
-    
-    mxGPUImage test2;
-    test2.setDataF(d_region);
-    mxArray* output2=test2.getDataMxArrayCPU();
-    
-    double* output2Ptr=(double*) mxGetData(output2);
-            
+   /*
     mexPrintf("\n");
     for(int i=0; i < 3; i++){
         mexPrintf("\n");
@@ -110,13 +150,16 @@ void mexFunction(   int nlhs, mxArray *plhs[],
         mexPrintf(" %f",output2Ptr[j*3+i]);
         }
     }
-     
+     */
     mexPrintf("\n");
-    mxGPUDestroyGPUArray(A);
+    
+    mxFree(window_size);
+    mxGPUDestroyGPUArray(Cx);
+    mxGPUDestroyGPUArray(Cy);
+    mxGPUDestroyGPUArray(ref);
+    mxGPUDestroyGPUArray(searchwindow);
+    mxGPUDestroyGPUArray(mask);
 }
 
 /*####################### FOOTNOTES ##################################
- * (1)  We'll use a 2D grid where each thread corresponds with
- *      one pixel. We'll go for 1024 threads per block, which for a 2.1 CC 
- *      device gives us 67% occupancy.
- */
+*/

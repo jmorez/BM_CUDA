@@ -24,7 +24,7 @@ class mxGPUImage{
         double getValue(const int i, const int j);
         
         //Operators
-        double* mxGPUImage::operator()(int , int);
+        double mxGPUImage::operator()(int , int);
         
         
         //Misc.
@@ -93,53 +93,55 @@ mxArray* mxGPUImage::getDataMxArrayCPU(){
 
 
 //Returns an mxGPUArray that contains a square region of edge 2*radius+1 
-//around a pixel (i,j)
+//around a pixel (i,j). This probably only works when called from a kernel.
 mxGPUArray* mxGPUImage::getRegionAroundPixel(const int radius, 
                                         const int i, 
                                         const int j){
-    
-    mwSize* array_size=(mwSize*) mxMalloc((mwSize) 2*sizeof(mwSize));
-    array_size[0]=2*radius+1;
-    array_size[2]=array_size[0];
-    array_size[1]=0;
-    array_size[3]=0;
-    
-    mxGPUArray* d_region=mxGPUCreateGPUArray(   (mwSize) 2,
-                                                array_size,
-                                                mxDOUBLE_CLASS,
-                                                mxREAL,
-                                                MX_GPU_DO_NOT_INITIALIZE);
-    
-    double* d_regiondata=(double*)mxGPUGetData(d_region);
-    
-    const int min_i=i-radius;
-    const int max_i=i+radius;
-    const int min_j=j-radius;
-    const int max_j=j+radius;
-    
-    int k=0;
-    for(int j=min_j;j <= max_j; j++){
-        for (int i=min_i; i <= max_i; i++){ 
-            //This just doesn't work, am I assigning a host to a device 
-            //variable or vice versa?
-            d_regiondata[k]=(this->d_imagedataPtr)[0];
-            k+=1;
+    if(image_data_exists==true){
+        mwSize* array_size=(mwSize*) mxMalloc((mwSize) 2*sizeof(mwSize));
+        array_size[0]=2*radius+1;
+        array_size[2]=array_size[0];
+        array_size[1]=0;
+        array_size[3]=0;
+
+        mxGPUArray* d_region=mxGPUCreateGPUArray(   (mwSize) 2,
+                                                    array_size,
+                                                    mxDOUBLE_CLASS,
+                                                    mxREAL,
+                                                    MX_GPU_DO_NOT_INITIALIZE);
+
+        double* d_regiondata=(double*)mxGPUGetData(d_region);
+
+        const int min_i=i-radius;
+        const int max_i=i+radius;
+        const int min_j=j-radius;
+        const int max_j=j+radius;
+
+        int k=0;
+        for(int j=min_j;j <= max_j; j++){
+            for (int i=min_i; i <= max_i; i++){ 
+                //This just doesn't work, am I assigning a host to a device 
+                //variable or vice versa?
+                d_regiondata[k]=(this->getValue)(0,0);
+                k+=1;
+            }
         }
+        return d_region;
     }
-     /**/
-    return d_region;
+    else
+        return NULL;    
 };
 
 
 //Useful for assigning single pixels a certain value. Cfr. supra.
 double mxGPUImage::getValue(const int i, const int j){
-    return *((this->d_imagedataPtr)+(j*(this->M)+i));
+    return (this->d_imagedataPtr)[j*(this->M)+i];
 };
 
 //Not sure if I want a pointer or a value
-double* mxGPUImage::operator()(int i, int j){
+double mxGPUImage::operator()(int i, int j){
     if (i < M && j < N)
-        return ((this->getDataF())+(j*(this->M)+i));
+        return (this->d_imagedataPtr)[j*(this->M)+i];
     else
         return NULL;
 };
