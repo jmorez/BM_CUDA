@@ -37,11 +37,48 @@ void __global__ findMatches(const double* d_similarity,
                             const double* d_search_window, //Note that it should include padding with (blocksize-1)/2
                             const int* window_size, 
                             const bool* d_mask){
+    /*  Coordinates of the center of a potential match, accounting for padding 
+     *  of the search window.
+     */
+    const int padding_size=(int)(blocksize-1)/2;
+    const int i = blockDim.x*blockIdx.x+threadIdx.x+padding_size;
+    const int j = blockDim.y*blockIdx.y+threadIdx.y+padding_size;
+    /*  Fetch the reference and match centroid components, I might pass this 
+     *  to the kernel because this is the same for every thread.
+     */
+    const int searchwindow_center=(int)(window_size[0]*window_size[1]-1)/2;
+    double Cx_r=d_Cx[searchwindow_center];
+    double Cy_r=d_Cy[searchwindow_center];
     
-    const int i = blockDim.x*blockIdx.x+threadIdx.x+(const int)(blocksize-1)/2;
-    const int j = blockDim.y*blockIdx.y+threadIdx.y+(const int)(blocksize-1)/2;
+    const int pm_centroid=(j-padding_size)*(window_size[0]-blocksize)+i-padding_size;
+    double Cx_m=d_Cx[pm_centroid];
+    double Cy_m=d_Cy[pm_centroid];
     
-    if (i < window_size[0] && j < window_size[1]){
+    if (    window_size[0] <= i && i < window_size[0] 
+            &&window_size[1] <= j && j < window_size[1]){
+        int m; int n;
+        for (int k=0; k < blocksize*blocksize; k++){
+            if(d_mask[k]==1){
+                /*Calculate indices m and n that correspond with a pixel 
+                 * within the reference block.
+                 */
+                
+                /* Calculate corresponding normalized coordinates
+                 */
+                
+                /* Rotate coordinates (get everything working without 
+                 * rotation first!).
+                 */
+                
+                /*Find rotated (non integer) indices
+                 */
+                
+                /*Transform to a linear index that can fetch the potential
+                 *match pixel within the search window, interpolating. 
+                 */
+                
+            }
+        }
     }
 }
 
