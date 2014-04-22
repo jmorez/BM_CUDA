@@ -29,12 +29,23 @@
  *  The centroid components Cx and Cy are assumed to be normalized.
  *  
  */
-void __global__ findMatches(const double* d_similarity,
+
+void __device__ lin_interp(     const double* image, 
+                                double m, 
+                                double n, 
+                                const int imagerows,
+                                double& interpolated){
+    int k=(int) n*imagerows+m;
+    interpolated=image[k];
+}
+
+//Check the type, I think they should be double const * const
+void __global__ findMatches(double* const d_similarity,
                             const double* d_Cx,
                             const double* d_Cy,
                             const double* d_ref,
                             const int blocksize,
-                            const double* d_search_window, //Note that it should include padding with (blocksize-1)/2
+                            const double* d_searchwindow, //Note that it should include padding with (blocksize-1)/2
                             const int* window_size, 
                             const bool* d_mask){
     /*  Coordinates of the center of a potential match, accounting for padding 
@@ -56,28 +67,43 @@ void __global__ findMatches(const double* d_similarity,
     
     if (    window_size[0] <= i && i < window_size[0] 
             &&window_size[1] <= j && j < window_size[1]){
-        int m; int n;
-        for (int k=0; k < blocksize*blocksize; k++){
+        //We must go deeper...
+        int k; int m_r; int n_r;
+        double x; double y; double x_r; double y_r;
+        for (int m=0; m < blocksize*blocksize; m++){
+        for (int n=0; n < blocksize; n++){
+            k=blocksize*n+m;
             if(d_mask[k]==1){
-                /*Calculate indices m and n that correspond with a pixel 
-                 * within the reference block.
-                 */
-                
                 /* Calculate corresponding normalized coordinates
                  */
+                x=n/(blocksize-1)-0.5;
+                y=-m/(blocksize-1)+0.5;
                 
+                /* Check this expression! Notice that there's actually only
+                 * 2 values in the parentheses. 
+                 */
                 /* Rotate coordinates (get everything working without 
                  * rotation first!).
                  */
+                x_r=(Cx_r*Cx_m+Cy_r*Cy_m)*x+(Cx_m*Cy_r-Cx_r*Cy_m)*y;
+                y_r=(Cx_r*Cy_m-Cx_m*Cy_r)*x+(Cx_r*Cx_m+Cy_r*Cy_m)*y;
                 
-                /*Find rotated (non integer) indices
+                /* Return to indices, but immediately offset them so they 
+                 * correspond to searchwindow coordinates
                  */
-                
+                m_r=(x_r+0.5)*((double)(blocksize-1))+(double)i;
+                n_r=(0.5-y_r)*((double)(blocksize-1))+(double)j;
+                double interpolated=0;
+                lin_interp(d_searchwindow,m_r,n_r,window_size[0],interpolated);
+                double d=d_ref[k]-interpolated;
+                d_similarity[j*window_size[0]+i]=d*d;
+
                 /*Transform to a linear index that can fetch the potential
                  *match pixel within the search window, interpolating. 
                  */
                 
             }
+        }
         }
     }
 }
@@ -104,7 +130,7 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     
     //Array & device pointer declarations, make sure to destroy mxGPUArrays.
     mxGPUArray* similarity;
-    const double* d_similarity;
+    double* d_similarity;
     const mxGPUArray* Cx; 
     const double* d_Cx;
     const mxGPUArray* Cy;
@@ -142,7 +168,7 @@ void mexFunction(   int nlhs, mxArray *plhs[],
                             mxGPUGetClassID(searchwindow),
                             mxGPUGetComplexity(searchwindow),
                             MX_GPU_DO_NOT_INITIALIZE);
-    d_similarity = (double *)(mxGPUGetData(similarity));
+    d_similarity = (double* const)(mxGPUGetData(similarity));
             
     //Get blocksize and windowsize without padding
     const mwSize* mw_blocksize=mxGPUGetDimensions(ref);
