@@ -31,7 +31,7 @@
  */
 
 //Verify the argument types
-void __device__ lin_interp(     const double* image, 
+void __device__ lin_interp(     double* const image, 
                                 double m, 
                                 double n, 
                                 const int imagerows,
@@ -46,31 +46,34 @@ void __global__ findMatches(double* const d_similarity,
                             const double* d_Cy,
                             const double* d_ref,
                             const int blocksize,
-                            const double* d_searchwindow, //Note that it should include padding with (blocksize-1)/2
-                            const int* window_size, 
+                            const double* d_searchwindow, //Note that it should include padding. 
+                            const int window_M,
+                            const int window_N, 
                             const bool* d_mask){
+                            
     /*  Coordinates of the center of a potential match, accounting for padding 
      *  of the search window.
      */
-    const int padding_size=(int)(blocksize-1)/2;
-    const int i = blockDim.x*blockIdx.x+threadIdx.x+padding_size;
-    const int j = blockDim.y*blockIdx.y+threadIdx.y+padding_size;
+    const int padding_size=6;//(int)(blocksize-1)/2;
+    const int i = blockDim.x*blockIdx.x+threadIdx.x;//+padding_size;
+    const int j = blockDim.y*blockIdx.y+threadIdx.y;//+padding_size;
     /*  Fetch the reference and match centroid components, I might pass this 
      *  to the kernel because this is the same for every thread.
      */
-    //d_similarity[j*window_size[0]+i]=1;
     
-    
-//     const int searchwindow_center=(int)(window_size[0]*window_size[1]-1)/2;
-//     double Cx_r=d_Cx[searchwindow_center];
-//     double Cy_r=d_Cy[searchwindow_center];
-//     
+     const int center=(int)((window_M)*(window_N)-1)/2;
+     double Cx_r=d_Cx[center];
+     double Cy_r=d_Cy[center];
+     if (       i < window_M-padding_size   && j < window_N-padding_size 
+             && i > padding_size            && j > padding_size){
+         d_similarity[j*window_M+i]=Cy_r;
+     }
+     
 //     const int pm_centroid=(j-padding_size)*(window_size[0]-blocksize)+i-padding_size;
 //     double Cx_m=d_Cx[pm_centroid];
 //     double Cy_m=d_Cy[pm_centroid];
 //     
-//     if (    window_size[0] <= i && i < window_size[0] 
-//             &&window_size[1] <= j && j < window_size[1]){
+//     if (i < window_M && j < window_N){
 //         //We must go deeper...
 //         int k; int m_r; int n_r;
 //         double x; double y; double x_r; double y_r;
@@ -132,14 +135,9 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     
     //Initialize MathWorks GPU API. 
     mxInitGPU();
-    
-    //Misc. array declarations
-    int* window_size;
-    
-    
+     
     //mxGPUArray & device pointer declarations, make sure to destroy mxGPUArrays.
     mxGPUArray* similarity;
-    double* d_similarity;
     const mxGPUArray* Cx; 
     const double* d_Cx;
     const mxGPUArray* Cy;
@@ -177,17 +175,15 @@ void mexFunction(   int nlhs, mxArray *plhs[],
                             mxGPUGetClassID(searchwindow),
                             mxGPUGetComplexity(searchwindow),
                             MX_GPU_DO_NOT_INITIALIZE);
-    d_similarity = (double* const)(mxGPUGetData(similarity));
+    double* const d_similarity = (double* const)(mxGPUGetData(similarity));
             
-    //Get blocksize and windowsize without padding
+    //Get blocksize and windowsize including padding
     const mwSize* mw_blocksize=mxGPUGetDimensions(ref);
     const int blocksize=mw_blocksize[0];
 
     const mwSize* mw_WindowSize =  mxGPUGetDimensions(searchwindow);
-    window_size=(int*) mxMalloc(sizeof(int)*2);
-    //Account for padding
-    window_size[0]=mw_WindowSize[0]-blocksize;
-    window_size[1]=mw_WindowSize[2]-blocksize;
+    const int window_M=mw_WindowSize[0];
+    const int window_N=mw_WindowSize[2];
     
 
      
@@ -201,19 +197,19 @@ void mexFunction(   int nlhs, mxArray *plhs[],
 	threadsPerBlock.x=(size_t)sqrt((double) MaxThreadsPerBlock);
 	threadsPerBlock.y=(size_t)sqrt((double) MaxThreadsPerBlock);
    
-    blocksPerGrid.x=(size_t)(window_size[0]-1)/threadsPerBlock.x+1;
-    blocksPerGrid.y=(size_t)(window_size[2]-1)/threadsPerBlock.y+1;
+    blocksPerGrid.x=(size_t)(window_M-1)/threadsPerBlock.x+1;
+    blocksPerGrid.y=(size_t)(window_N-1)/threadsPerBlock.y+1;
     blocksPerGrid.z=1;
-    /*
     findMatches<<<blocksPerGrid,threadsPerBlock>>>( d_similarity,
                                                     d_Cx,
                                                     d_Cy,
                                                     d_ref,
                                                     blocksize,
                                                     d_searchwindow,
-                                                    window_size,
+                                                    window_M,
+                                                    window_N,
                                                     d_mask);
-    */
+    
    /*
     mexPrintf("\n");
     for(int i=0; i < 3; i++){
@@ -227,7 +223,6 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     
     mexPrintf("\n");
     
-    mxFree(window_size);
     mxGPUDestroyGPUArray(Cx);
     mxGPUDestroyGPUArray(Cy);
     mxGPUDestroyGPUArray(ref);
