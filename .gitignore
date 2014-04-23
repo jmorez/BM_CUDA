@@ -1,7 +1,5 @@
 *.asv
-<<<<<<< HEAD
 *.mexw64
 *.xml
-=======
-*.mexw64
->>>>>>> 69cc828ef85029aef2c96bc9960d738000bc6e68
+*.mat
+
