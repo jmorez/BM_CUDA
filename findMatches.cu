@@ -58,7 +58,7 @@ void __global__ findMatches(double* const d_similarity,
     /*  Fetch the reference and match centroid components, I might pass this 
      *  to the kernel because this is the same for every thread.
      */
-    d_similarity[j*window_size[0]+i]=1;
+    //d_similarity[j*window_size[0]+i]=1;
     
     
 //     const int searchwindow_center=(int)(window_size[0]*window_size[1]-1)/2;
