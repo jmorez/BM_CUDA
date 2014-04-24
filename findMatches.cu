@@ -7,19 +7,12 @@
  /* ###########################STYLE NOTES###############################
   * Device variables will have the prefix d_, no prefix implies a host 
   * variable.
-  *
-  * Throughout this code, I will insert footnotes inside comments of the 
-  * format (#) which -unsurprisingly- can be found at the bottom. This is 
-  * first of all to keep the code compact, but also to allow both the 
-  * reader as myself to understand this code, i.e. "why 
-  * use datatype X", "why do loop Y like this", "why is thisindex Z minus 
-  * one", ...  
   */
 
 #include "mex.h"
 #include "gpu/mxGPUArray.h"
 #include <math.h>
-
+#include <cuda_runtime.h>
 
 /*  This kernel will find matches for a reference block and a search window. 
  *  Every thread gets one comparison of the reference block with a block 
@@ -30,15 +23,8 @@
  *  
  */
 
-//Verify the argument types
-void __device__ lin_interp(     double* const image, 
-                                double m, 
-                                double n, 
-                                const int imagerows,
-                                double& interpolated){
-    int k=(int) n*imagerows+m;
-    interpolated=image[k];
-}
+    // Texture reference for 2D float texture
+    texture<float, 2, cudaReadModeElementType> tex;
 
 //Check the type (cfr. mexGPUExample.cu), I think they should be double const * const
 void __global__ findMatches(double* const d_similarity,
@@ -46,7 +32,7 @@ void __global__ findMatches(double* const d_similarity,
                             const double* d_Cy,
                             const double* d_ref,
                             const int blocksize,
-                            const double* d_searchwindow, //Note that it should include padding. 
+                            const float* d_searchwindow, //Note that it should include padding. 
                             const int window_M,
                             const int window_N, 
                             const bool* d_mask){
@@ -60,62 +46,68 @@ void __global__ findMatches(double* const d_similarity,
     /*  Fetch the reference and match centroid components, I might pass this 
      *  to the kernel because this is the same for every thread.
      */
-    
-     const int center=(int)((window_M)*(window_N)-1)/2;
-     double Cx_r=d_Cx[center];
-     double Cy_r=d_Cy[center];
-    
-     
-     const int pm_centroid=j*window_M+i;
-     double Cx_m=d_Cx[pm_centroid];
-     double Cy_m=d_Cy[pm_centroid];
+
+    const int center=(int)((window_M)*(window_N)-1)/2;
+    double Cx_r=d_Cx[center];
+    double Cy_r=d_Cy[center];
+
+
+    const int pm_centroid=j*window_M+i;
+    double Cx_m=d_Cx[pm_centroid];
+    double Cy_m=d_Cy[pm_centroid];
          
-if (       i < window_M-padding_size   && j < window_N-padding_size 
+        if (    i < window_M-padding_size   && j < window_N-padding_size 
              && i > padding_size            && j > padding_size){
-//         //We must go deeper...
-//         int k; int m_r; int n_r;
-//         double x; double y; double x_r; double y_r;
-//         for (int m=0; m < blocksize*blocksize; m++){
-//         for (int n=0; n < blocksize; n++){
-//             k=blocksize*n+m;
-//             if(d_mask[k]==1){
-//                 /* Calculate corresponding normalized coordinates
-//                  */
-//                 x=n/(blocksize-1)-0.5;
-//                 y=-m/(blocksize-1)+0.5;
-//                 
-//                 /* Check this expression! Notice that there's actually only
-//                  * 2 values in the parentheses. 
-//                  */
-//                 /* Rotate coordinates (get everything working without 
-//                  * rotation first!).
-//                  */
-//                 /*
-//                 x_r=(Cx_r*Cx_m+Cy_r*Cy_m)*x+(Cx_m*Cy_r-Cx_r*Cy_m)*y;
-//                 y_r=(Cx_r*Cy_m-Cx_m*Cy_r)*x+(Cx_r*Cx_m+Cy_r*Cy_m)*y;
-//                 */
-//                 x_r=1*x+0*y;
-//                 y_r=0*x+1*y;
-//                 /* Return to indices, but immediately offset them so they 
-//                  * correspond to searchwindow coordinates
-//                  */
-//                 m_r=(x_r+0.5)*((double)(blocksize-1))+(double)i;
-//                 n_r=(0.5-y_r)*((double)(blocksize-1))+(double)j;
-//                 double interpolated=0;
-//                 lin_interp(d_searchwindow,m_r,n_r,window_size[0],interpolated);
-//                 double d=5+0*d_ref[k]+0*interpolated;
-//                 d_similarity[j*window_size[0]+i]=d*d;
-// 
-//                 /*Transform to a linear index that can fetch the potential
-//                  *match pixel within the search window, interpolating. 
-//                  */
-//                 
-//             }
-//             else
-//                 d_similarity[j*window_size[0]+i]=0;
-//         }
-//         }
-//     }
+            
+        int k; int m_r; int n_r; int u; int v; int k_m;
+        double x; double y; double x_r; double y_r;
+        for (int n=0; n < blocksize; n++){
+        for (int m=0; m < blocksize; m++){
+            k=blocksize*n+m;
+            u=i-padding_size+m;
+            v=j-padding_size+n;
+            k_m=v*window_M+u;
+            if(d_mask[k]==true){
+                /* Calculate corresponding normalized coordinates
+                 */
+                x=n/(blocksize-1)-0.5;
+                y=-m/(blocksize-1)+0.5;
+                
+                /* Check this expression! Notice that there's actually only
+                 * 2 values in the parentheses. 
+                 */
+                /* Rotate coordinates (get everything working without 
+                 * rotation first!).
+                 */
+                /*
+                x_r=(Cx_r*Cx_m+Cy_r*Cy_m)*x+(Cx_m*Cy_r-Cx_r*Cy_m)*y;
+                y_r=(Cx_r*Cy_m-Cx_m*Cy_r)*x+(Cx_r*Cx_m+Cy_r*Cy_m)*y;
+                */
+                x_r=1*x+0*y;
+                y_r=0*x+1*y;
+                /* Return to indices, but immediately offset them so they 
+                 * correspond to searchwindow coordinates
+                 */
+                m_r=(x_r+0.5)*((double)(blocksize-1))+(double)i;
+                n_r=(0.5-y_r)*((double)(blocksize-1))+(double)j;
+                /*
+                double interpolated=0;
+                lin_interp(d_searchwindow,m_r,n_r,window_size[0],interpolated);
+                double d=5+0*d_ref[k]+0*interpolated;
+                 */
+                double d=d_searchwindow[k_m]-d_ref[k];
+                d_similarity[j*window_M+i]=tex2D(tex, 0, 0);
+
+                /*Transform to a linear index that can fetch the potential
+                 *match pixel within the search window, interpolating. 
+                 */  
+            }
+        }
+        }
+    }
+        else if(i < window_M && j < window_N)
+            d_similarity[j*window_M+i]=0;
+            
 }
 
 /* Call in matlab like this:
@@ -167,6 +159,9 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     d_searchwindow=(double*)mxGPUGetDataReadOnly(searchwindow);
     d_mask=(bool*)mxGPUGetDataReadOnly(mask);
     
+    
+    
+    
     //Output array, probably needs a smaller size due to padding of searchwindow
     similarity = mxGPUCreateGPUArray(mxGPUGetNumberOfDimensions(searchwindow),
                             mxGPUGetDimensions(searchwindow),
@@ -174,7 +169,9 @@ void mexFunction(   int nlhs, mxArray *plhs[],
                             mxGPUGetComplexity(searchwindow),
                             MX_GPU_DO_NOT_INITIALIZE);
     double* const d_similarity = (double* const)(mxGPUGetData(similarity));
-            
+          
+    
+    
     //Get blocksize and windowsize including padding
     const mwSize* mw_blocksize=mxGPUGetDimensions(ref);
     const int blocksize=mw_blocksize[0];
@@ -182,8 +179,32 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     const mwSize* mw_WindowSize =  mxGPUGetDimensions(searchwindow);
     const int window_M=mw_WindowSize[0];
     const int window_N=mw_WindowSize[2];
-    
 
+    //Read d_searchwindow into a texture
+    cudaChannelFormatDesc channelDesc =
+        cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindFloat);
+    
+    unsigned int size=window_M*window_N*sizeof(float);
+    cudaArray *cuArray;
+    cudaMallocArray(    &cuArray,
+                        &channelDesc,
+                        window_M,
+                        window_N);
+    cudaMemcpyToArray(cuArray,
+                      0,
+                      0,
+                      (float* const)d_searchwindow,
+                      size,
+                      cudaMemcpyHostToDevice);
+
+    // Set texture parameters
+    tex.addressMode[0] = cudaAddressModeWrap;
+    tex.addressMode[1] = cudaAddressModeWrap;
+    tex.filterMode = cudaFilterModeLinear;
+    tex.normalized = true;    // access with normalized texture coordinates
+
+    // Bind the array to the texture
+    cudaBindTextureToArray(tex, cuArray, channelDesc);
      
     /*Kernel parameters
 	 *Figure out grid layout. (1)
@@ -203,7 +224,7 @@ void mexFunction(   int nlhs, mxArray *plhs[],
                                                     d_Cy,
                                                     d_ref,
                                                     blocksize,
-                                                    d_searchwindow,
+                                                    (float* const)d_searchwindow,
                                                     window_M,
                                                     window_N,
                                                     d_mask);
@@ -221,6 +242,7 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     
     mexPrintf("\n");
     
+    cudaFreeArray(cuArray);
     mxGPUDestroyGPUArray(Cx);
     mxGPUDestroyGPUArray(Cy);
     mxGPUDestroyGPUArray(ref);
