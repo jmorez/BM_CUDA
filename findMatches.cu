@@ -64,16 +64,14 @@ void __global__ findMatches(double* const d_similarity,
      const int center=(int)((window_M)*(window_N)-1)/2;
      double Cx_r=d_Cx[center];
      double Cy_r=d_Cy[center];
-     if (       i < window_M-padding_size   && j < window_N-padding_size 
-             && i > padding_size            && j > padding_size){
-         d_similarity[j*window_M+i]=Cy_r;
-     }
+    
      
-//     const int pm_centroid=(j-padding_size)*(window_size[0]-blocksize)+i-padding_size;
-//     double Cx_m=d_Cx[pm_centroid];
-//     double Cy_m=d_Cy[pm_centroid];
-//     
-//     if (i < window_M && j < window_N){
+     const int pm_centroid=j*window_M+i;
+     double Cx_m=d_Cx[pm_centroid];
+     double Cy_m=d_Cy[pm_centroid];
+         
+if (       i < window_M-padding_size   && j < window_N-padding_size 
+             && i > padding_size            && j > padding_size){
 //         //We must go deeper...
 //         int k; int m_r; int n_r;
 //         double x; double y; double x_r; double y_r;
