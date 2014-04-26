@@ -58,11 +58,14 @@ void __global__ findMatches(double* const  d_similarity,
     const int padding_size=(int)(blocksize-1)/2;          
         if (    i < window_M-padding_size   && j < window_N-padding_size 
              && i > padding_size            && j > padding_size){
-        d_similarity[j*window_M+i]=(float)tex2D(tex,(float)j/(float)window_N,(float)i/(float)window_M);   
+        //d_similarity[j*window_M+i]=(float)tex2D(tex,(float)j/(float)window_N,(float)i/(float)window_M);   
         int k;
         double x; double y;
         double R11; double R12;
         double x_r; double y_r;
+        double m_r; double n_r;
+        float u; float v;
+        double d=(double)0;
         
         for (int n=0; n < blocksize; n++){
         for (int m=0; m < blocksize; m++){
@@ -77,10 +80,14 @@ void __global__ findMatches(double* const  d_similarity,
                 
                 x_r=R11*x-R12*y;
                 y_r=R12*x+R11*y;
-
-                //double d=d_searchwindow[k_m]-d_ref[k];
-                //+x_r etc.
-                //d_similarity[j*window_M+i]=tex2D(tex,(float)j/(float)window_N,(float)i/(float)window_M);
+                
+                m_r=(0.5-y_r)*(blocksize-1);
+                n_r=(x_r-0.5)*(blocksize-1);
+                u=(float)((m_r+(float)i)/(float)window_M);
+                v=(float)((n_r+(float)j)/(float)window_N);
+                
+                d=d_ref[k]-(double)tex2D(tex,u,v);
+                d_similarity[j*window_M+i]+=(double)1;//d*d;//tex2D(tex,(float)i/(float)window_M,(float)j/(float)window_N);    
             }
         }
         }
