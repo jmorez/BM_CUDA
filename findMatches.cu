@@ -27,12 +27,12 @@
 texture<float, 2, cudaReadModeElementType> tex;
 
 //Check the type (cfr. mexGPUExample.cu), I think they should be float const * const
-void __global__ findMatches(float* const  d_similarity,
-                            const float* const d_Cx,
-                            const float* const d_Cy,
-                            const float* const d_ref,
+void __global__ findMatches(double* const  d_similarity,
+                            const double* const d_Cx,
+                            const double* const d_Cy,
+                            const double* const d_ref,
                             const int blocksize,
-                            const float* const d_searchwindow, //Note that it should include padding. 
+                            //const double* const d_searchwindow, //Note that it should include padding. 
                             const int window_M,
                             const int window_N, 
                             const bool* const d_mask){
@@ -48,65 +48,45 @@ void __global__ findMatches(float* const  d_similarity,
      */
 
     const int center=(int)((window_M)*(window_N)-1)/2;
-    float Cx_r=d_Cx[center];
-    float Cy_r=d_Cy[center];
+    double Cx_r=d_Cx[center];
+    double Cy_r=d_Cy[center];
 
 
     const int pm_centroid=j*window_M+i;
-    float Cx_m=d_Cx[pm_centroid];
-    float Cy_m=d_Cy[pm_centroid];
+    double Cx_m=d_Cx[pm_centroid];
+    double Cy_m=d_Cy[pm_centroid];
     const int padding_size=(int)(blocksize-1)/2;          
         if (    i < window_M-padding_size   && j < window_N-padding_size 
              && i > padding_size            && j > padding_size){
-           d_similarity[j*window_M+i]=tex2D(tex,(float)i/(float)window_M,(float)j/(float)window_N);
-//         int k; int m_r; int n_r; int u; int v; int k_m;
-//         float x; float y; float x_r; float y_r;
-//         for (int n=0; n < blocksize; n++){
-//         for (int m=0; m < blocksize; m++){
-//             k=blocksize*n+m;
-//             u=i-padding_size+m;
-//             v=j-padding_size+n;
-//             k_m=v*window_M+u;
-//             if(d_mask[k]==true){
-//                 /* Calculate corresponding normalized coordinates
-//                  */
-//                 x=n/(blocksize-1)-0.5;
-//                 y=-m/(blocksize-1)+0.5;
-//                 
-//                 /* Check this expression! Notice that there's actually only
-//                  * 2 values in the parentheses. 
-//                  */
-//                 /* Rotate coordinates (get everything working without 
-//                  * rotation first!).
-//                  */
-//                 /*
-//                 x_r=(Cx_r*Cx_m+Cy_r*Cy_m)*x+(Cx_m*Cy_r-Cx_r*Cy_m)*y;
-//                 y_r=(Cx_r*Cy_m-Cx_m*Cy_r)*x+(Cx_r*Cx_m+Cy_r*Cy_m)*y;
-//                 */
-//                 x_r=1*x+0*y;
-//                 y_r=0*x+1*y;
-//                 /* Return to indices, but immediately offset them so they 
-//                  * correspond to searchwindow coordinates
-//                  */
-//                 m_r=(x_r+0.5)*((float)(blocksize-1))+(float)i;
-//                 n_r=(0.5-y_r)*((float)(blocksize-1))+(float)j;
-//                 /*
-//                 float interpolated=0;
-//                 lin_interp(d_searchwindow,m_r,n_r,window_size[0],interpolated);
-//                 float d=5+0*d_ref[k]+0*interpolated;
-//                  */
-//                 float d=d_searchwindow[k_m]-d_ref[k];
-//                 d_similarity[j*window_M+i]=1;//tex2D(tex, 0.5, 0.5);
-// 
-//                 /*Transform to a linear index that can fetch the potential
-//                  *match pixel within the search window, interpolating. 
-//                  */  
-//             }
-//         }
-//         }
+        d_similarity[j*window_M+i]=(float)tex2D(tex,(float)j/(float)window_N,(float)i/(float)window_M);   
+        int k;
+        double x; double y;
+        double R11; double R12;
+        double x_r; double y_r;
+        
+        for (int n=0; n < blocksize; n++){
+        for (int m=0; m < blocksize; m++){
+            k=blocksize*n+m; //corresponding reference coordinate
+            if(d_mask[k]==true){
+                x=n/(blocksize-1)-0.5;
+                y=-m/(blocksize-1)+0.5;
+             
+
+                R11=(Cx_r*Cx_m+Cy_r*Cy_m);
+                R12=(Cx_m*Cy_r-Cx_r*Cy_m);
+                
+                x_r=R11*x-R12*y;
+                y_r=R12*x+R11*y;
+
+                //double d=d_searchwindow[k_m]-d_ref[k];
+                //+x_r etc.
+                //d_similarity[j*window_M+i]=tex2D(tex,(float)j/(float)window_N,(float)i/(float)window_M);
+            }
+        }
+        }
     }
         else if(i < window_M && j < window_N)
-            d_similarity[j*window_M+i]=(float)0;        
+            d_similarity[j*window_M+i]=(double)0;        
 }
 
 /* Call in matlab like this:
@@ -152,22 +132,21 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     searchwindow    =mxGPUCreateFromMxArray(prhs[3]);
     mask            =mxGPUCreateFromMxArray(prhs[4]);
     
-    const float* const  d_Cx    =(float* const)mxGPUGetDataReadOnly(Cx);
-    const float* const  d_Cy    =(float* const)mxGPUGetDataReadOnly(Cy);
-    const float* const  d_ref   =(float* const)mxGPUGetDataReadOnly(ref);
-    const float* const  d_searchwindow =(float* const)mxGPUGetDataReadOnly(searchwindow);
+    const double* const  d_Cx    =(double* const)mxGPUGetDataReadOnly(Cx);
+    const double* const  d_Cy    =(double* const)mxGPUGetDataReadOnly(Cy);
+    const double* const  d_ref   =(double* const)mxGPUGetDataReadOnly(ref);
     const bool*  const  d_mask  =(bool* const)mxGPUGetDataReadOnly(mask);
     
-    
+    const float* const  d_searchwindow =(float* const)mxGPUGetDataReadOnly(searchwindow);  
     
     
     //Output array, probably needs a smaller size due to padding of searchwindow
     similarity = mxGPUCreateGPUArray(mxGPUGetNumberOfDimensions(searchwindow),
                             mxGPUGetDimensions(searchwindow),
-                            mxSINGLE_CLASS,
+                            mxDOUBLE_CLASS,
                             mxGPUGetComplexity(searchwindow),
                             MX_GPU_DO_NOT_INITIALIZE);
-    float* const d_similarity = (float*)mxGPUGetData(similarity);
+    double* const d_similarity = (double*)mxGPUGetData(similarity);
           
     
     
@@ -177,8 +156,8 @@ void mexFunction(   int nlhs, mxArray *plhs[],
 
     const mwSize* mw_WindowSize =  mxGPUGetDimensions(searchwindow);
     const int window_M=mw_WindowSize[0];
-    const int window_N=mw_WindowSize[2];
-
+    const int window_N=mw_WindowSize[2];    
+    
     //Read d_searchwindow into a texture
     cudaChannelFormatDesc channelDesc =
         cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindFloat);
@@ -192,15 +171,15 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     cudaMemcpyToArray(cuArray,
                       0,
                       0,
-                      d_searchwindow,
+                      (const void*)d_searchwindow,
                       size,
-                      cudaMemcpyHostToDevice);
+                      cudaMemcpyDeviceToDevice);
 
     // Set texture parameters
-    tex.addressMode[0] = cudaAddressModeWrap;
-    tex.addressMode[1] = cudaAddressModeWrap;
+    tex.addressMode[0] = cudaAddressModeClamp;
+    tex.addressMode[1] = cudaAddressModeClamp;
     tex.filterMode = cudaFilterModeLinear;
-    tex.normalized = true;    // access with normalized texture coordinates
+    tex.normalized = true;    
 
     // Bind the array to the texture
     cudaBindTextureToArray(tex, cuArray, channelDesc);
@@ -224,7 +203,7 @@ void mexFunction(   int nlhs, mxArray *plhs[],
                                                     d_Cy,
                                                     d_ref,
                                                     blocksize,
-                                                    d_searchwindow,
+                                                    //d_searchwindow,
                                                     window_M,
                                                     window_N,
                                                     d_mask);
