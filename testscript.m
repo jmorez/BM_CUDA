@@ -1,9 +1,10 @@
 %PARAMETERS
-imgname='lhc.jpg';
-ref_i=519;
-ref_j=385;
-blocksize=31;
-subplots=1;
+imgname='curvedline.jpg';
+ref_i=110;
+ref_j=258;
+blocksize=17;
+subplots=0;
+treshold=0;
 
 close all
 img=imread(imgname);
@@ -33,7 +34,7 @@ imagesc(img)
 colormap('gray')
 axis image
 title('Search window and reference')
-rectangle('Position',[ref_j-padding ref_i-padding blocksize blocksize])
+rectangle('Position',[ref_j-padding ref_i-padding blocksize blocksize],'edgecolor','r')
 
 %figure 
 %imagesc(ref)
@@ -49,7 +50,9 @@ if(subplots==1)
 else
     figure
 end
-imagesc(1./C((padding+2):(end-padding),(padding+2):(end-padding)));
-colormap('jet')
+similarity=1./C((padding+2):(end-padding),(padding+2):(end-padding));
+imagesc(similarity.*(similarity > treshold));
+colormap('gray')
+%colormap('jet')
 axis image
 title('Similarity')
