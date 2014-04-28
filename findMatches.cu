@@ -23,6 +23,13 @@
  *  
  */
 
+/* TO DO:
+ *verify every input:
+ *everything should be single-precision 
+ *Cx and Cy should match the size of searchwindow and should have odd size
+ *ref must have M=N (odd)
+ *mask should be bool and the same size as ref
+*/
 // Texture reference for 2D float texture
 texture<float, 2, cudaReadModeElementType> tex;
 
@@ -66,32 +73,36 @@ void __global__ findMatches(float* const  d_similarity,
         float m_r; float n_r;
         float u; float v;
         //float d=(float)0;
-        float d=0.;
-        //d_similarity[j*window_M+i]=(float)tex2D(tex,(float)i/(float)window_M,(float)j/(float)window_N);
+        float d;
+
         for (int n=0; n < blocksize; n++){
         for (int m=0; m < blocksize; m++){
-            k=blocksize*n+m; //corresponding reference coordinate
+            k=blocksize*n+m; //corresponding reference linear index
             if(d_mask[k]==true){
                 
+                //Rotation coordinates
                 x=(float)n/((float)blocksize-1.)-0.5;
                 y=-(float)m/((float)blocksize-1.)+0.5;
              
-
+                //Rotation matrix
                 R11=(Cx_r*Cx_m+Cy_r*Cy_m);
                 R12=(Cx_m*Cy_r-Cx_r*Cy_m);
-                //R11=(float)1; R12=(float)0;
+                
+                //Rotate coordinates
                 x_r=R11*x-R12*y;
                 y_r=R12*x+R11*y;
                 
+                //Transform back to array coordinates of the potential match.
                 m_r=(0.5-(float)y_r)*((float)blocksize-1.);
                 n_r=((float)x_r-0.5)*((float)blocksize-1.);
                 
+                //Transform to coordinates within the search window
                 u=(float)(m_r+(float)i-(float)padding_size);
                 v=(float)(n_r+(float)j-(float)padding_size);
                 
+                //Calculate difference
                 d=d_ref[k]-tex2D(tex,u,v);
-                
-                //Must be initialized to zero because of += !!!
+                //Square it
                 d_similarity[j*window_M+i]+=d*d;
             }
         }
@@ -101,19 +112,50 @@ void __global__ findMatches(float* const  d_similarity,
             d_similarity[j*window_M+i]=(float)0;        
 }
 
-/* Call in matlab like this:
-[plhs[0],plhs[1],plhs[...],plhs[nrhs-1]]=filename(prhs[0],prhs[1],prhs[...],prhs[nrhs-1])
-*/
 void mexFunction(   int nlhs, mxArray *plhs[],
                     int nrhs, mxArray const *prhs[]){
-    /* prhs argument explanation:
-     *plhs[0]: Cx
-     *... [1]: Cy
-     *... [2]: ref
-     *... [3]: search_window
-     *... [4]: mask
-     */
     
+ /* ########################Input Verification############################
+  * If you're fearless, you comment this out and gain a couple of milliseconds.
+  */
+    
+    
+    char const * const errId            = "parallel:gpu";
+    char const * const err_Arguments    = "Incorrect amount of arguments.";
+    char const * const err_Type         = "First four arguments must be of single precision type.";
+    char const * const err_TypeLogical  = "Mask must be of type logical.";
+    char const * const err_RefWrongSize = "Reference size should be odd.";
+    char const * const err_SWWrongSize  = "Searchwindow size should be odd.";
+    char const * const err_CWrongSize   = "Cx and Cy should be the same size as the searchwindow";
+    
+    /* Check the amount of arguments */
+    if(nrhs!=5)
+        mexErrMsgIdAndTxt(errId, err_Arguments);
+    
+    /*Check the types */
+    if(mxIsSingle(prhs[0])==false 
+      |mxIsSingle(prhs[1])==false
+      |mxIsSingle(prhs[2])==false
+      |mxIsSingle(prhs[3])==false)
+        mexErrMsgIdAndTxt(errId, err_Type);
+    
+    if(mxIsLogical(prhs[4])==false)
+        mexErrMsgIdAndTxt(errId, err_TypeLogical);
+    
+    /*Check the size of the reference block */
+    if(mxGetM(prhs[2]) % 2 ==0 | mxGetN(prhs[2]) % 2 == 0)
+        mexErrMsgIdAndTxt(errId, err_RefWrongSize);
+    /*Check the size of the search window */
+    if(mxGetM(prhs[3]) % 2 ==0 | mxGetN(prhs[3]) % 2 == 0)
+        mexErrMsgIdAndTxt(errId, err_SWWrongSize);
+    
+    /* Make sure Cx and Cy are the same size as searchwindow */
+    if(mxGetM(prhs[3])!=mxGetM(prhs[0])
+      |mxGetM(prhs[3])!=mxGetM(prhs[1])
+      |mxGetN(prhs[3])!=mxGetN(prhs[0])     
+      |mxGetN(prhs[3])!=mxGetN(prhs[1]))
+        mexErrMsgIdAndTxt(errId, err_CWrongSize);
+      
     //Initialize MathWorks GPU API. 
     mxInitGPU();
      
@@ -134,9 +176,7 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     dim3 blocksPerGrid;
     dim3 threadsPerBlock;
 
-    /*Input verification
-        ... I'll do it later
-    */
+   
     //Create the image array on the GPU and assign device pointers.
     Cx              =mxGPUCreateFromMxArray(prhs[0]);
     Cy              =mxGPUCreateFromMxArray(prhs[1]);
@@ -147,20 +187,21 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     const float* const d_Cx    =(float* const)mxGPUGetDataReadOnly(Cx);
     const float* const d_Cy    =(float* const)mxGPUGetDataReadOnly(Cy);
     const float* const d_ref   =(float* const)mxGPUGetDataReadOnly(ref);
-    const bool*  const  d_mask  =(bool* const)mxGPUGetDataReadOnly(mask);
+    const float* const d_searchwindow =(float* const)mxGPUGetDataReadOnly(searchwindow);  
+    const bool*  const d_mask  =(bool*  const)mxGPUGetDataReadOnly(mask);
     
-    const float* const  d_searchwindow =(float* const)mxGPUGetDataReadOnly(searchwindow);  
     
     
-    //Output array, probably needs a smaller size due to padding of searchwindow
+    
+    //Output array creation
     similarity = mxGPUCreateGPUArray(mxGPUGetNumberOfDimensions(searchwindow),
                             mxGPUGetDimensions(searchwindow),
                             mxSINGLE_CLASS,
                             mxREAL,
-                            MX_GPU_INITIALIZE_VALUES);
+                            MX_GPU_INITIALIZE_VALUES); //Initialize to 0
+    
     float* const d_similarity = (float*)mxGPUGetData(similarity);
           
-    
     
     //Get blocksize and windowsize including padding
     const mwSize* mw_blocksize=mxGPUGetDimensions(ref);
@@ -170,7 +211,9 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     const int window_M=mw_WindowSize[0];
     const int window_N=mw_WindowSize[1];    
 
-    //Read d_searchwindow into a texture
+    
+    /* Assign d_searchwindow to a texture for performance purposes */
+
     cudaChannelFormatDesc channelDesc =
         cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindFloat);
     
@@ -190,15 +233,17 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     // Set texture parameters
     tex.addressMode[0] = cudaAddressModeClamp;
     tex.addressMode[1] = cudaAddressModeClamp;
+    //For 2D textures this is actually bilinear filtering
     tex.filterMode = cudaFilterModeLinear;
     tex.normalized = false;    
 
     // Bind the array to the texture
     cudaBindTextureToArray(tex, cuArray, channelDesc);
      
+    
+    
     /*Kernel parameters
-	 *Figure out grid layout. (1)
-	 */
+	 *Figure out grid layout. Assuming device of compute capability 2.x or more */
 	cudaDeviceProp device;
 	cudaGetDeviceProperties(&device,0);
 	const int MaxThreadsPerBlock=device.maxThreadsPerBlock;
@@ -210,6 +255,7 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     blocksPerGrid.y=(size_t)(window_N-1)/threadsPerBlock.y+1;
     blocksPerGrid.z=1;
     
+    //Run kernel
     findMatches<<<blocksPerGrid,threadsPerBlock>>>( d_similarity,
                                                     d_Cx,
                                                     d_Cy,
@@ -219,11 +265,12 @@ void mexFunction(   int nlhs, mxArray *plhs[],
                                                     window_M,
                                                     window_N,
                                                     d_mask);
-    cudaDeviceSynchronize();	 
+    cudaDeviceSynchronize();
+    
+    //Return output
     plhs[0] = mxGPUCreateMxArrayOnCPU(similarity);
     
-    mexPrintf("\n");
-    
+    //Garbage collection
     cudaUnbindTexture(tex); 	
     cudaFreeArray(cuArray);
     mxGPUDestroyGPUArray(Cx);
@@ -234,5 +281,3 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     mxGPUDestroyGPUArray(similarity);
 }
 
-/*####################### FOOTNOTES ##################################
-*/
