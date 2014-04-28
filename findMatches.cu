@@ -30,7 +30,7 @@ texture<float, 2, cudaReadModeElementType> tex;
 void __global__ findMatches(float* const  d_similarity,
                             const float* const d_Cx,
                             const float* const d_Cy,
-                            const float* const d_ref,
+                            const float* const d_ref, // <-- THIS SHOULD ALSO BE A TEXTURE
                             const int blocksize,
                             //const float* const d_searchwindow, //Note that it should include padding. 
                             const int window_M,
@@ -77,19 +77,19 @@ void __global__ findMatches(float* const  d_similarity,
                 y=-(float)m/((float)blocksize-1.)+0.5;
              
 
-                //R11=(Cx_r*Cx_m+Cy_r*Cy_m);
-                //R12=(Cx_m*Cy_r-Cx_r*Cy_m);
-                R11=(float)1; R12=(float)0;
+                R11=(Cx_r*Cx_m+Cy_r*Cy_m);
+                R12=(Cx_m*Cy_r-Cx_r*Cy_m);
+                //R11=(float)1; R12=(float)0;
                 x_r=R11*x-R12*y;
                 y_r=R12*x+R11*y;
                 
                 m_r=(0.5-(float)y_r)*((float)blocksize-1.);
                 n_r=((float)x_r-0.5)*((float)blocksize-1.);
                 
-                u=(float)((0.*m_r+(float)i-0.*(float)padding_size)/(float)window_M);
-                v=(float)((0.*n_r+(float)j-0.*(float)padding_size)/(float)window_N);
+                u=(float)(m_r+(float)i-(float)padding_size);
+                v=(float)(n_r+(float)j-(float)padding_size);
                 
-                d=tex2D(tex,u,v);
+                d=d_ref[k]-tex2D(tex,u,v);
                 
                 //Must be initialized to zero because of += !!!
                 d_similarity[j*window_M+i]+=d*d;
@@ -191,7 +191,7 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     tex.addressMode[0] = cudaAddressModeClamp;
     tex.addressMode[1] = cudaAddressModeClamp;
     tex.filterMode = cudaFilterModeLinear;
-    tex.normalized = true;    
+    tex.normalized = false;    
 
     // Bind the array to the texture
     cudaBindTextureToArray(tex, cuArray, channelDesc);
