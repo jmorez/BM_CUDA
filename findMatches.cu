@@ -5,8 +5,7 @@
  */
 
  /* ###########################STYLE NOTES###############################
-  * Device variables will have the prefix d_, no prefix implies a host 
-  * variable.
+  * Device pointers will have the prefix d_.
   */
 
 #include "mex.h"
@@ -37,23 +36,17 @@ texture<float, 2, cudaReadModeElementType> tex;
 void __global__ findMatches(float* const  d_similarity,
                             const float* const d_Cx,
                             const float* const d_Cy,
-                            const float* const d_ref, // <-- THIS SHOULD ALSO BE A TEXTURE
+                            const float* const d_ref, 
                             const int blocksize,
-                            //const float* const d_searchwindow, //Note that it should include padding. 
                             const int window_M,
                             const int window_N, 
                             const bool* const d_mask){
                             
-    /*  Coordinates of the center of a potential match, accounting for padding 
-     *  of the search window.
-     */
-    
+    /*  Coordinates of the center of a potential match. */ 
     const int i = blockDim.x*blockIdx.x+threadIdx.x;
     const int j = blockDim.y*blockIdx.y+threadIdx.y;
-    /*  Fetch the reference and match centroid components, I might pass this 
-     *  to the kernel because this is the same for every thread.
-     */
-
+    
+    /*  Fetch the reference and potential match centroid components.*/
     const int center=(int)((window_M)*(window_N)-1)/2;
     float Cx_r=d_Cx[center];
     float Cy_r=d_Cy[center];
@@ -62,24 +55,22 @@ void __global__ findMatches(float* const  d_similarity,
     const int pm_centroid=j*window_M+i;
     float Cx_m=d_Cx[pm_centroid];
     float Cy_m=d_Cy[pm_centroid];
+    
+    /* Avoid reading outside of arrays. */
     const int padding_size=(int)(blocksize-1)/2;          
         if (    i < window_M-padding_size   && j < window_N-padding_size 
              && i > padding_size            && j > padding_size){  
-
-        int k;
-        float x; float y;
+        int k; float x; float y;
+        
         float R11; float R12;
-        float x_r; float y_r;
-        float m_r; float n_r;
-        float u; float v;
-        //float d=(float)0;
+        float x_r; float y_r; float m_r; float n_r; float u; float v;
         float d;
-
+        
         for (int n=0; n < blocksize; n++){
         for (int m=0; m < blocksize; m++){
             k=blocksize*n+m; //corresponding reference linear index
+            //Use a circular mask to account for the rotation.
             if(d_mask[k]==true){
-                
                 //Rotation coordinates
                 x=(float)n/((float)blocksize-1.)-0.5;
                 y=-(float)m/((float)blocksize-1.)+0.5;
@@ -108,8 +99,8 @@ void __global__ findMatches(float* const  d_similarity,
         }
         }
     }
-        else if(i < window_M && j < window_N)
-            d_similarity[j*window_M+i]=(float)0;        
+    else if(i < window_M && j < window_N)
+        d_similarity[j*window_M+i]=(float)0;        
 }
 
 void mexFunction(   int nlhs, mxArray *plhs[],
@@ -126,7 +117,8 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     char const * const err_TypeLogical  = "Mask must be of type logical.";
     char const * const err_RefWrongSize = "Reference size should be odd.";
     char const * const err_SWWrongSize  = "Searchwindow size should be odd.";
-    char const * const err_CWrongSize   = "Cx and Cy should be the same size as the searchwindow";
+    char const * const err_CWrongSize   = "Cx and Cy should be the same size as the searchwindow.";
+    char const * const err_MWrongSize   = "Mask should have the same size as the reference block.";
     
     /* Check the amount of arguments */
     if(nrhs!=5)
@@ -156,6 +148,12 @@ void mexFunction(   int nlhs, mxArray *plhs[],
       |mxGetN(prhs[3])!=mxGetN(prhs[1]))
         mexErrMsgIdAndTxt(errId, err_CWrongSize);
       
+    if(mxGetM(prhs[4])!= mxGetM(prhs[2])
+      |mxGetN(prhs[4])!= mxGetN(prhs[2]))
+        mexErrMsgIdAndTxt(errId, err_MWrongSize);
+    
+   /* ########################GPU Data Preparation#########################*/
+    
     //Initialize MathWorks GPU API. 
     mxInitGPU();
      
