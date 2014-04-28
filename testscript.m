@@ -1,7 +1,7 @@
 %PARAMETERS
-imgname='curvedline.jpg';
-ref_i=110;
-ref_j=258;
+imgname='test.jpg';
+ref_i=160;
+ref_j=227;
 blocksize=17;
 subplots=1;
 treshold=0;
@@ -52,7 +52,7 @@ else
 end
 similarity=1./C((padding+2):(end-padding),(padding+2):(end-padding));
 imagesc(similarity.*(similarity > treshold));
-colormap('gray')
-%colormap('jet')
+%colormap('gray')
+colormap('jet')
 axis image
 title('Similarity')
