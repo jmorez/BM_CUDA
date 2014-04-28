@@ -3,7 +3,7 @@ imgname='curvedline.jpg';
 ref_i=110;
 ref_j=258;
 blocksize=17;
-subplots=0;
+subplots=1;
 treshold=0;
 
 close all
