@@ -78,7 +78,8 @@ void __global__ findMatches(float* const  d_similarity,
                 //Rotation matrix
                 R11=(Cx_r*Cx_m+Cy_r*Cy_m);
                 R12=(Cx_m*Cy_r-Cx_r*Cy_m);
-                
+                //R11=(float)1;
+                //R12=(float)0;
                 //Rotate coordinates
                 x_r=R11*x-R12*y;
                 y_r=R12*x+R11*y;

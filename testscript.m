@@ -1,8 +1,9 @@
 %PARAMETERS
-imgname='test.jpg'
-ref_i=157;
-ref_j=219;
-blocksize=25;
+imgname='lhc.jpg';
+ref_i=519;
+ref_j=385;
+blocksize=31;
+subplots=1;
 
 close all
 img=imread(imgname);
@@ -16,25 +17,39 @@ img=img(1:newsize,1:newsize);
 padding=(blocksize-1)/2;
 ref=img((ref_i-padding):(ref_i+padding),(ref_j-padding):(ref_j+padding));
 mask=circularmask(blocksize);
+disp('Calculating centroids...')
+tic
 [Cx,Cy]=FastCentroid(img,blocksize);
+disp(strcat(['Centroids calculated in: ' num2str(toc) ' seconds.']))
 Cx=single(Cx);
 Cy=single(Cy);
 
-subplot(1,2,1)
-h1=imagesc(img)
+if(subplots==1)
+    subplot(1,2,1)
+else
+    figure
+end
+imagesc(img)
 colormap('gray')
 axis image
 title('Search window and reference')
 rectangle('Position',[ref_j-padding ref_i-padding blocksize blocksize])
-freezeColors;
+
 %figure 
 %imagesc(ref)
 %axis image
 %colormap('gray')
 
-tic; C=findMatches(Cx,Cy,ref,img,mask); toc;
-subplot(1,2,2)
-h2=imagesc(1./C);
+disp('Executing kernel...')
+tic; C=findMatches(Cx,Cy,ref,img,mask); 
+disp(strcat(['Similarity calculated in: ' num2str(toc) ' seconds.']))
+if(subplots==1)
+    freezeColors;
+    subplot(1,2,2)
+else
+    figure
+end
+imagesc(1./C((padding+2):(end-padding),(padding+2):(end-padding)));
 colormap('jet')
 axis image
 title('Similarity')
