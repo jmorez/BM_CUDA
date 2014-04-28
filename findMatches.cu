@@ -253,7 +253,7 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     blocksPerGrid.y=(size_t)(window_N-1)/threadsPerBlock.y+1;
     blocksPerGrid.z=1;
     
-    //Run kernel
+  /*########################KERNEL EXECUTION###############################*/
     findMatches<<<blocksPerGrid,threadsPerBlock>>>( d_similarity,
                                                     d_Cx,
                                                     d_Cy,
