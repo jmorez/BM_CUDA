@@ -30,8 +30,8 @@ function result=filterRegion(img,i,j,region_size,blocksize,percentile)
     Cy=single(Cy);
     disp(strcat(['Centroids calculated in ' num2str(round(1000*toc)) 'ms. ']))
     mask=circularmask(blocksize);
-    result=zeros(max_i-min_i,max_j-min_j);
-
+    %result=zeros(max_i-min_i,max_j-min_j);
+    result=cell(max_i-min_i,max_j-min_j);
 
     %Time estimation variables.
     max_iter=(max_i-min_i)*(max_j-min_j);
@@ -44,9 +44,9 @@ function result=filterRegion(img,i,j,region_size,blocksize,percentile)
         for n=(j+padding):(j+(max_j-min_j)-padding)
             tic
             ref=img((m-padding):(m+padding),(n-padding):(n+padding));
-            similarity=findMatches(Cx,Cy,ref,Cx(m,n),Cy(m,n),region,mask);
-            matches=selectMatches(region,similarity,percentile);
-            result(m-i+1,n-j+1)=median(matches(:));
+            similarity=findMatches(Cx,Cy,ref,Cx(m-i+1,n-j+1),Cy(m-i,n-j),region,mask);
+            result{m-i+1,n-j+1}=selectMatches(region,similarity,percentile);
+            %result(m-i+1,n-j+1)=median(matches(:));
             
             %More waitbar/time estimation stuff
             timeleft=(max_iter-counter)*toc;
