@@ -2,6 +2,8 @@
 imgname='test.jpg';
 ref_i=160;
 ref_j=227;
+%ref_i=274;
+%ref_j=323;
 blocksize=17;
 subplots=1;
 treshold=0;
@@ -42,7 +44,7 @@ rectangle('Position',[ref_j-padding ref_i-padding blocksize blocksize],'edgecolo
 %colormap('gray')
 
 disp('Executing kernel...')
-tic; C=findMatches(Cx,Cy,ref,img,mask); 
+tic; C=findMatches(Cx,Cy,ref,Cx(ref_i,ref_j),Cy(ref_i,ref_j),img,mask); 
 disp(strcat(['Similarity calculated in: ' num2str(toc) ' seconds.']))
 if(subplots==1)
     freezeColors;
