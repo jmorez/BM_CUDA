@@ -36,7 +36,9 @@ texture<float, 2, cudaReadModeElementType> tex;
 void __global__ findMatches(float* const  d_similarity,
                             const float* const d_Cx,
                             const float* const d_Cy,
-                            const float* const d_ref, 
+                            const float* const d_ref,
+                            const float Cx_r,
+                            const float Cy_r,
                             const int blocksize,
                             const int window_M,
                             const int window_N, 
@@ -47,9 +49,9 @@ void __global__ findMatches(float* const  d_similarity,
     const int j = blockDim.y*blockIdx.y+threadIdx.y;
     
     /*  Fetch the reference and potential match centroid components.*/
-    const int center=(int)((window_M)*(window_N)-1)/2;
-    float Cx_r=d_Cx[center];
-    float Cy_r=d_Cy[center];
+    //const int center=(int)((window_M)*(window_N)-1)/2;
+    //float Cx_r=d_Cx[center];
+    //float Cy_r=d_Cy[center];
 
 
     const int pm_centroid=j*window_M+i;
@@ -106,6 +108,15 @@ void __global__ findMatches(float* const  d_similarity,
 
 void mexFunction(   int nlhs, mxArray *plhs[],
                     int nrhs, mxArray const *prhs[]){
+    /* Argument list & explanation:
+     *plhs[0]: Cx
+     *plhs[1]: Cy
+     *plhs[2]: ref
+     *plhs[3]: Cx_r  so 3->5 and 4-> 6
+     *plhs[4]: Cy_r
+     *plhs[5]: searchwindow
+     *plhs[6]: mask
+     */
     
  /* ########################Input Verification############################
   * If you're fearless, you comment this out and gain a couple of milliseconds.
@@ -117,40 +128,45 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     char const * const err_Type         = "First four arguments must be of single precision type.";
     char const * const err_TypeLogical  = "Mask must be of type logical.";
     char const * const err_RefWrongSize = "Reference size should be odd.";
-    char const * const err_SWWrongSize  = "Searchwindow size should be odd.";
+    //char const * const err_SWWrongSize  = "Searchwindow size should be odd.";
     char const * const err_CWrongSize   = "Cx and Cy should be the same size as the searchwindow.";
     char const * const err_MWrongSize   = "Mask should have the same size as the reference block.";
     
     /* Check the amount of arguments */
-    if(nrhs!=5)
+    if(nrhs!=7)
         mexErrMsgIdAndTxt(errId, err_Arguments);
     
     /*Check the types */
     if(mxIsSingle(prhs[0])==false 
       |mxIsSingle(prhs[1])==false
       |mxIsSingle(prhs[2])==false
-      |mxIsSingle(prhs[3])==false)
+      |mxIsSingle(prhs[3])==false
+      |mxIsSingle(prhs[4])==false
+      |mxIsSingle(prhs[5])==false)
         mexErrMsgIdAndTxt(errId, err_Type);
     
-    if(mxIsLogical(prhs[4])==false)
+    if(mxIsLogical(prhs[6])==false)
         mexErrMsgIdAndTxt(errId, err_TypeLogical);
     
     /*Check the size of the reference block */
     if(mxGetM(prhs[2]) % 2 ==0 | mxGetN(prhs[2]) % 2 == 0)
         mexErrMsgIdAndTxt(errId, err_RefWrongSize);
+    
     /*Check the size of the search window */
-    if(mxGetM(prhs[3]) % 2 ==0 | mxGetN(prhs[3]) % 2 == 0)
+    /*if(mxGetM(prhs[3]) % 2 ==0 | mxGetN(prhs[3]) % 2 == 0)
         mexErrMsgIdAndTxt(errId, err_SWWrongSize);
+    */
     
     /* Make sure Cx and Cy are the same size as searchwindow */
-    if(mxGetM(prhs[3])!=mxGetM(prhs[0])
-      |mxGetM(prhs[3])!=mxGetM(prhs[1])
-      |mxGetN(prhs[3])!=mxGetN(prhs[0])     
-      |mxGetN(prhs[3])!=mxGetN(prhs[1]))
+    if(mxGetM(prhs[5])!=mxGetM(prhs[0])
+      |mxGetM(prhs[5])!=mxGetM(prhs[1])
+      |mxGetN(prhs[5])!=mxGetN(prhs[0])     
+      |mxGetN(prhs[5])!=mxGetN(prhs[1]))
         mexErrMsgIdAndTxt(errId, err_CWrongSize);
       
-    if(mxGetM(prhs[4])!= mxGetM(prhs[2])
-      |mxGetN(prhs[4])!= mxGetN(prhs[2]))
+    /* Make sure the mask size is the same as the reference size*/
+    if(mxGetM(prhs[6])!= mxGetM(prhs[2])
+      |mxGetN(prhs[6])!= mxGetN(prhs[2]))
         mexErrMsgIdAndTxt(errId, err_MWrongSize);
     
    /* ########################GPU Data Preparation#########################*/
@@ -180,8 +196,8 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     Cx              =mxGPUCreateFromMxArray(prhs[0]);
     Cy              =mxGPUCreateFromMxArray(prhs[1]);
     ref             =mxGPUCreateFromMxArray(prhs[2]);
-    searchwindow    =mxGPUCreateFromMxArray(prhs[3]);
-    mask            =mxGPUCreateFromMxArray(prhs[4]);
+    searchwindow    =mxGPUCreateFromMxArray(prhs[5]);
+    mask            =mxGPUCreateFromMxArray(prhs[6]);
     
     const float* const d_Cx    =(float* const)mxGPUGetDataReadOnly(Cx);
     const float* const d_Cy    =(float* const)mxGPUGetDataReadOnly(Cy);
@@ -189,7 +205,8 @@ void mexFunction(   int nlhs, mxArray *plhs[],
     const float* const d_searchwindow =(float* const)mxGPUGetDataReadOnly(searchwindow);  
     const bool*  const d_mask  =(bool*  const)mxGPUGetDataReadOnly(mask);
     
-    
+    const float Cx_r=(float)mxGetScalar(prhs[3]);
+    const float Cy_r=(float)mxGetScalar(prhs[4]);
     
     
     //Output array creation
@@ -259,8 +276,9 @@ void mexFunction(   int nlhs, mxArray *plhs[],
                                                     d_Cx,
                                                     d_Cy,
                                                     d_ref,
+                                                    Cx_r,
+                                                    Cy_r,
                                                     blocksize,
-                                                    //d_searchwindow,
                                                     window_M,
                                                     window_N,
                                                     d_mask);

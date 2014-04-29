@@ -44,7 +44,7 @@ function result=filterRegion(img,i,j,region_size,blocksize,percentile)
         for n=(j+padding):(j+(max_j-min_j)-padding)
             tic
             ref=img((m-padding):(m+padding),(n-padding):(n+padding));
-            similarity=findMatches(Cx,Cy,ref,region,mask);
+            similarity=findMatches(Cx,Cy,ref,Cx(m,n),Cy(m,n),region,mask);
             matches=selectMatches(region,similarity,percentile);
             result(m-i+1,n-j+1)=median(matches(:));
             
