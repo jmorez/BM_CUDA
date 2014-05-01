@@ -5,7 +5,7 @@ function [Cx,Cy]=FastCentroid(X,blocksize)
     if mod(blocksize,2)~=0 && rows == cols
         Cx=zeros(rows,cols);
         Cy=Cx;
-        pad_size=floor(blocksize/2);
+        pad_size=floor((blocksize-1)/2);
         Xpadded=padarray(X,[pad_size pad_size]);
         x=linspace(-blocksize/2,blocksize/2,blocksize);
 
