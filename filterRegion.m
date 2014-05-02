@@ -51,9 +51,15 @@ function result=filterRegion(img,i,j,region_size,searchwindow_size,blocksize,per
             Cy_sw=Cy((m-swpadding):(m+swpadding),(n-swpadding):(n+swpadding));
             
             ref=img((m-padding):(m+padding),(n-padding):(n+padding));
+
             similarity=findMatches(Cx_sw,Cy_sw,ref,Cx(m-i+1,n-j+1),Cy(m-i,n-j),searchwindow,mask);
+
+            similarity=findMatches(Cx,Cy,ref,region,mask);
+            matches=selectMatches(region,similarity,percentile);
+            result(m-i+1,n-j+1)=mean(matches(:));
+
+            similarity=findMatches(Cx,Cy,ref,Cx(m-i+1,n-j+1),Cy(m-i,n-j),region,mask);
             result{m-i+1,n-j+1}=selectMatches(region,similarity,percentile);
-            %result(m-i+1,n-j+1)=median(matches(:));
             
             %More waitbar/time estimation stuff
             timeleft=(max_iter-counter)*toc;
