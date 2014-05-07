@@ -53,6 +53,8 @@ function result=filterRegion(img,i,j,region_size,searchwindow_size,blocksize,per
     figure
     h=imagesc(result);
     axis image
+    caxis([0 1]);
+    colormap('gray');
     drawnow
     disp('Applying kernel to the ROI...')
     for m=min_i:max_i;
@@ -67,20 +69,28 @@ function result=filterRegion(img,i,j,region_size,searchwindow_size,blocksize,per
             %drawnow
             
             %Fetch searchwindow from image, currently ignores any 
-            searchwindow=img((m-swpadding):(m+swpadding),(n-swpadding):(n+swpadding));
-            Cx_sw=Cx((m-swpadding):(m+swpadding),(n-swpadding):(n+swpadding));
-            Cy_sw=Cy((m-swpadding):(m+swpadding),(n-swpadding):(n+swpadding)); 
+            sw_min_i=max(1,m-swpadding);
+            sw_max_i=min(rows,m+swpadding);
+            sw_min_j=max(1,n-swpadding);
+            sw_max_j=min(cols,n+swpadding);
+            searchwindow=img(sw_min_i:sw_max_i,sw_min_j:sw_max_j);
+            Cx_sw=Cx(sw_min_i:sw_max_i,sw_min_j:sw_max_j);
+            Cy_sw=Cy(sw_min_i:sw_max_i,sw_min_j:sw_max_j); 
             ref=img((m-padding):(m+padding),(n-padding):(n+padding));
            
             %Find matches for pixel (m,n)
             similarity=findMatches(Cx_sw,Cy_sw,ref,Cx(m,n),Cy(m,n),searchwindow,mask); 
-            
             %This will change probably
-            matches=selectMatches(region,similarity,percentile);
-            if(isempty(matches))
-                result(m-i+1,n-j+1)=mean(matches(:));
+            matches=img(similarity<percentile);%selectMatches(region,similarity,percentile);\
+            
+            mean_est=mean(mean(matches));
+            noise_est=mean(mean((mean_est-matches).^2));
+            Nij=0.01;
+            weight=(noise_est-Nij)/noise_est;
+            if(~isempty(matches))
+                result(m-i+1,n-j+1)=mean_est+weight*(img(m,n)-mean_est);%length(matches);%
             else
-                result(m-i+1,n-j+1)=img(m-i+1,n-j+1);
+                %result(m-i+1,n-j+1)=img(m-i+1,n-j+1);
             end
             set(h,'CData',result);
             drawnow
