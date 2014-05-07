@@ -1,11 +1,11 @@
 %PARAMETERS
 imgname='test.jpg';
-ref_i=160;
+ref_i=120;
 ref_j=227;
 %ref_i=274;
 %ref_j=323;
-blocksize=17;
-subplots=1;
+blocksize=31;
+subplots=0;
 treshold=0;
 
 close all
