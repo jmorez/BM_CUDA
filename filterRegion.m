@@ -1,18 +1,16 @@
 function result=filterRegion(img,i,j,region_size,searchwindow_size,blocksize,percentile)
-    
+    %Get image dimensions
     [rows,cols]=size(img);
-    
-
-    swpadding=floor((searchwindow_size-1)/2);
-    
-    
-    
-    %Coordinates of the ROI
+    swpadding=floor((searchwindow_size-1)/2);  
+    padding=floor((blocksize-1)/2);
+    %Coordinates of the ROI, make sure they stay within the image. Not
+    %completely watertight though (see searchwindow padding etc.)
     min_i=max(1,i);
     max_i=min(rows,i+region_size-1);
     min_j=max(1,j);
     max_j=min(cols,j+region_size-1);
     
+    %Not sure if needed
     region=img(min_i:max_i,min_j:max_j);
     
     %This will be removed probably
@@ -26,51 +24,66 @@ function result=filterRegion(img,i,j,region_size,searchwindow_size,blocksize,per
 %     
 
     tic
-    %We only need the centroids for the ROI
-    [Cx,Cy]=FastCentroid(double(region),blocksize);
+    [Cx,Cy]=FastCentroid(img,blocksize);
     Cx=single(Cx);
     Cy=single(Cy);
     disp(strcat(['Centroids calculated in ' num2str(round(1000*toc)) 'ms. ']))
     mask=circularmask(blocksize);
     
     %Initialize output array containing the matches for each pixel
-    result=cell(max_i-min_i,max_j-min_j);
-
+    %result=cell(max_i-min_i,max_j-min_j);
+    result=img(min_i:max_i,min_j:max_j);
     %Time estimation variables.
     max_iter=(max_i-min_i)*(max_j-min_j);
     counter=0;
     estimate_sample_size=50;
     time_estimate_array=zeros(estimate_sample_size,1);
     
+    %Visualization stuff that will be deleted...
+    figure
     hold on;
-    imagesc(region);
+    imagesc(img);
     axis ij;
     rectangle('Position',[min_j min_i (max_i-min_i) (max_j-min_j)],'EraseMode','xor')
     axis image
     colormap('gray')
-
-    disp('Launching kernel...')
+    hold off;
+    
+    %Show realtime filtering
+    figure
+    h=imagesc(result);
+    axis image
+    drawnow
+    disp('Applying kernel to the ROI...')
     for m=min_i:max_i;
         for n=min_j:max_j
             tic
             %Seachwindow coordinates
-            sw_min_i=max(1,m-swpadding);
-            sw_max_i=min(rows,m+searchwindow_size-1);
-            sw_min_j=max(1,n-swpadding);
-            sw_max_j=min(cols,n+searchwindow_size-1);            
-            rectangle('Position',[sw_min_j sw_min_i (sw_max_j-sw_min_j) (sw_max_i-sw_min_i)]);
-            drawnow
+%             sw_min_i=max(1,m-swpadding);
+%             sw_max_i=min(rows,m+searchwindow_size-1);
+%             sw_min_j=max(1,n-swpadding);
+%             sw_max_j=min(cols,n+searchwindow_size-1);            
+            %rectangle('Position',[sw_min_j sw_min_i (sw_max_j-sw_min_j) (sw_max_i-sw_min_i)]);
+            %drawnow
+            
+            %Fetch searchwindow from image, currently ignores any 
             searchwindow=img((m-swpadding):(m+swpadding),(n-swpadding):(n+swpadding));
-            %Cx_sw=Cx((m-min_i+1):(m-min_i+1),(n-swpadding):(n+swpadding));
-            %Cy_sw=Cy((m-swpadding):(m+swpadding),(n-swpadding):(n+swpadding));
+            Cx_sw=Cx((m-swpadding):(m+swpadding),(n-swpadding):(n+swpadding));
+            Cy_sw=Cy((m-swpadding):(m+swpadding),(n-swpadding):(n+swpadding)); 
+            ref=img((m-padding):(m+padding),(n-padding):(n+padding));
+           
+            %Find matches for pixel (m,n)
+            similarity=findMatches(Cx_sw,Cy_sw,ref,Cx(m,n),Cy(m,n),searchwindow,mask); 
             
-            %ref=img((m-padding):(m+padding),(n-padding):(n+padding));
-%           
-%             similarity=findMatches(Cx_sw,Cy_sw,ref,Cx(m-i+1,n-j+1),Cy(m-i,n-j),searchwindow,mask);
-% 
-%             matches=selectMatches(region,similarity,percentile);
-%             result(m-i+1,n-j+1)=mean(matches(:));
-            
+            %This will change probably
+            matches=selectMatches(region,similarity,percentile);
+            if(isempty(matches))
+                result(m-i+1,n-j+1)=mean(matches(:));
+            else
+                result(m-i+1,n-j+1)=img(m-i+1,n-j+1);
+            end
+            set(h,'CData',result);
+            drawnow
             %More waitbar/time estimation stuff
             timeleft=(max_iter-counter)*toc;
             time_estimate_array(mod(counter,estimate_sample_size)+1)=timeleft;
