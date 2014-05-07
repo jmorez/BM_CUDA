@@ -19,7 +19,7 @@ function [Cx,Cy]=FastCentroid(X,blocksize)
         nonzero=not(zero);
         Cx(nonzero)=Cx(nonzero)./N(nonzero);
         Cy(nonzero)=Cy(nonzero)./N(nonzero);
-        Cx(zero)=0;
+        Cx(zero)=1;
         Cy(zero)=0;
             
     else
