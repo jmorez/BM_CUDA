@@ -1,4 +1,4 @@
-Written by Jan Morez (University of Antwerp) as a part of <a href="https://dl.dropboxusercontent.com/u/17216535/Poster.pdf">a bachelor's 
+Written by Jan Morez (University of Antwerp) as a part of <a href="https://dl.dropboxusercontent.com/u/17216535/Poster.pdf" target="_blank">a bachelor's 
 thesis </a> that uses a blockmatching algorithm  to gather a statistical 
 population for denoising single pixels in an image.
 
