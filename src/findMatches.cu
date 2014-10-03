@@ -1,5 +1,5 @@
 /*  ###########################DESCRIPTION###############################
- *  Written by XXXXXXX (University of XXXXXX) as a part of a bachelor's 
+ *  Written by Jan Morez (University of Antwerp) as a part of a bachelor's 
  *  thesis that uses a blockmatching algorithm  to gather a statistical 
  *  population for denoising single pixels in an image.
  */
